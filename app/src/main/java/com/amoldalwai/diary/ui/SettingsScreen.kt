@@ -58,6 +58,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationManagerCompat
+import com.amoldalwai.diary.reminder.ReminderScheduler
 import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.SettingsStore
 import com.amoldalwai.diary.data.ThemeMode
@@ -186,6 +188,20 @@ fun SettingsScreen(
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
+                    }
+                    TextButton(onClick = {
+                        if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+                            ReminderScheduler.notifyNow(context)
+                        } else {
+                            Toast.makeText(context, "Notifications are turned off for Diary in system settings", Toast.LENGTH_LONG).show()
+                        }
+                    }) { Text("Send a test notification") }
+                    if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true) || Build.MANUFACTURER.equals("Redmi", ignoreCase = true) || Build.MANUFACTURER.equals("POCO", ignoreCase = true)) {
+                        Text(
+                            "Xiaomi tip: if reminders don't arrive, open Settings → Apps → Diary and set Battery saver to \"No restrictions\" and turn on Autostart.",
+                            fontSize = 12.sp,
+                            color = colors.onSurfaceVariant,
+                        )
                     }
                 }
 

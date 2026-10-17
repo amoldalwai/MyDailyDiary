@@ -276,7 +276,7 @@ class DiaryRepository(context: Context) {
 
     suspend fun saveBitmap(bitmap: Bitmap): String = withContext(Dispatchers.IO) {
         val name = "${UUID.randomUUID()}.jpg"
-        imageFile(name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        imageFile(name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
         name
     }
 
@@ -295,7 +295,7 @@ class DiaryRepository(context: Context) {
                 }
             }
             val name = "${UUID.randomUUID()}.jpg"
-            imageFile(name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 88, it) }
+            imageFile(name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, PHOTO_QUALITY, it) }
             bitmap.recycle()
             name
         }.getOrNull()
@@ -496,7 +496,8 @@ class DiaryRepository(context: Context) {
     }
 
     private companion object {
-        const val MAX_IMAGE_SIDE = 1600
+        const val MAX_IMAGE_SIDE = 1280
+        const val PHOTO_QUALITY = 80
         const val PREVIEW_CHARS = 260
     }
 }

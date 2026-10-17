@@ -17,7 +17,8 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 object ReminderScheduler {
-    private const val CHANNEL_ID = "daily_reminder"
+    private const val CHANNEL_ID = "daily_reminder_v2"
+    private const val LEGACY_CHANNEL_ID = "daily_reminder"
     private const val REQUEST_ALARM = 1001
     private const val REQUEST_OPEN = 1002
 
@@ -30,8 +31,10 @@ object ReminderScheduler {
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
+        // The first channel was created with default importance; importance can't be raised later, so it was replaced.
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Daily reminder", NotificationManager.IMPORTANCE_DEFAULT).apply {
+            NotificationChannel(CHANNEL_ID, "Daily reminder", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "A nudge to write your diary entry"
             },
         )
@@ -63,6 +66,8 @@ object ReminderScheduler {
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setContentIntent(open)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .build()
         runCatching { context.getSystemService(NotificationManager::class.java).notify(REQUEST_ALARM, notification) }

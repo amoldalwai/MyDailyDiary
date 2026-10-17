@@ -6,6 +6,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
+import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,7 +36,10 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.max
 
 sealed interface Screen {
@@ -162,7 +166,13 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     fun setReminder(enabled: Boolean, hour: Int, minute: Int) {
         settings.updateReminder(enabled, hour, minute)
         val context = getApplication<Application>()
-        if (enabled) ReminderScheduler.schedule(context, hour, minute) else ReminderScheduler.cancel(context)
+        if (enabled) {
+            ReminderScheduler.schedule(context, hour, minute)
+            val label = LocalTime.of(hour, minute).format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+            Toast.makeText(context, "Daily reminder set for $label", Toast.LENGTH_SHORT).show()
+        } else {
+            ReminderScheduler.cancel(context)
+        }
     }
 
     // ---- Home ----

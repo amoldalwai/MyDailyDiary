@@ -252,6 +252,8 @@ fun BookSearchSheet(onDismiss: () -> Unit, onAdd: (BookResult, BookStatus, Int?,
             val pick = selected
             if (pick == null) {
                 Text("Add a book", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Searches Open Library by title or author.", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Text("💡 Tip: add the year to the title for a closer match, like \"Dune 1965\".", fontSize = 13.sp, color = colors.primary)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = query,

@@ -25,11 +25,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -71,9 +77,19 @@ fun MediaLibraryScreen(
     var selectedId by remember { mutableStateOf<String?>(null) }
     var adding by remember { mutableStateOf(false) }
     var kind by rememberSaveable { mutableStateOf<String?>(null) }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }
+    val searchFocus = remember { FocusRequester() }
+    LaunchedEffect(searching) { if (searching) runCatching { searchFocus.requestFocus() } }
 
     // Optional second filter (Movies / Series); everything below works on the filtered list.
-    val scoped = remember(items, kind) { items.filter { kind == null || it.kind == kind } }
+    val needle = query.trim()
+    val scoped = remember(items, kind, needle) {
+        items.filter { item ->
+            (kind == null || item.kind == kind) &&
+                (needle.isEmpty() || item.title.contains(needle, ignoreCase = true) || item.subtitle.contains(needle, ignoreCase = true))
+        }
+    }
     val shown = remember(scoped, tab) { scoped.filter { tab == null || it.shelf == tab } }
     val activeShelf = shelves.firstOrNull { it.key == tab }
 
@@ -97,7 +113,25 @@ fun MediaLibraryScreen(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                 )
+                IconButton(onClick = { if (searching) { searching = false; query = "" } else searching = true }) {
+                    Icon(if (searching) Icons.Rounded.Close else Icons.Rounded.Search, if (searching) "Close search" else "Search this library", tint = colors.primary)
+                }
                 IconButton(onClick = { adding = true }) { Icon(Icons.Rounded.Add, "Add", tint = colors.primary) }
+            }
+
+            if (searching) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).focusRequester(searchFocus),
+                    singleLine = true,
+                    shape = CircleShape,
+                    leadingIcon = { Icon(Icons.Rounded.Search, null) },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Clear") }
+                    },
+                    placeholder = { Text("Search in $title") },
+                )
             }
 
             if (kinds.isNotEmpty()) {
@@ -149,11 +183,11 @@ fun MediaLibraryScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(emoji, fontSize = 56.sp)
+                    Text(if (needle.isNotEmpty()) "🔍" else emoji, fontSize = 56.sp)
                     Spacer(Modifier.height(12.dp))
-                    Text(emptyTitle(activeShelf), style = MaterialTheme.typography.titleLarge, color = colors.onBackground)
+                    Text(if (needle.isNotEmpty()) "No matches for \"$needle\"" else emptyTitle(activeShelf), style = MaterialTheme.typography.titleLarge, color = colors.onBackground)
                     Spacer(Modifier.height(6.dp))
-                    Text(emptyHint, color = colors.onSurfaceVariant)
+                    Text(if (needle.isNotEmpty()) "Try another title or part of the name." else emptyHint, color = colors.onSurfaceVariant)
                 }
 
                 shelfMode -> LazyColumn(contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {

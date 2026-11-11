@@ -216,6 +216,7 @@ fun WatchSearchSheet(onDismiss: () -> Unit, onAdd: (WatchResult, WatchKind, Watc
             if (pick == null) {
                 Text("Add a movie or series", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Searches Wikipedia for films and series, and TVMaze for series posters.", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Text("💡 Tip: add the year to the title for a closer match, like \"Dune 2021\".", fontSize = 13.sp, color = colors.primary)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = query,

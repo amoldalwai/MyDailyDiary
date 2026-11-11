@@ -253,6 +253,7 @@ fun GameSearchSheet(onDismiss: () -> Unit, onAdd: (GameResult, String, GameStatu
             if (pick == null) {
                 Text("Add a game", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Searches Steam (PC) and Wikipedia (all platforms).", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Text("💡 Tip: add the year to the title for a closer match, like \"Doom 2016\".", fontSize = 13.sp, color = colors.primary)
                 Spacer(Modifier.height(12.dp))
                 OutlinedTextField(
                     value = query,

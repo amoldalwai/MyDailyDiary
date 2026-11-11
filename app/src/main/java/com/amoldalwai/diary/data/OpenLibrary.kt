@@ -23,7 +23,20 @@ object OpenLibrary {
 
     fun coverUrl(coverId: Long, size: String = "M") = "https://covers.openlibrary.org/b/id/$coverId-$size.jpg"
 
-    suspend fun search(query: String): List<BookResult> = withContext(Dispatchers.IO) {
+    private val yearToken = Regex("\\b(1[5-9]|20)\\d{2}\\b")
+
+    /** A year typed with the title narrows the search to books first published that year; without matches the plain search runs. */
+    suspend fun search(query: String): List<BookResult> {
+        val year = yearToken.find(query)?.value
+        val title = year?.let { query.replace(it, " ").trim() }.orEmpty()
+        if (year != null && title.length >= 2) {
+            val narrowed = runCatching { searchRaw("$title first_publish_year:$year") }.getOrDefault(emptyList())
+            if (narrowed.isNotEmpty()) return narrowed
+        }
+        return searchRaw(query)
+    }
+
+    private suspend fun searchRaw(query: String): List<BookResult> = withContext(Dispatchers.IO) {
         val fields = "key,title,author_name,first_publish_year,cover_i,number_of_pages_median"
         val url = "https://openlibrary.org/search.json?q=${URLEncoder.encode(query, "UTF-8")}&limit=15&fields=$fields"
         val json = JSONObject(String(get(url)))

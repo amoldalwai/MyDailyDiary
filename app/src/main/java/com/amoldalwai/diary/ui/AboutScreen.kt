@@ -166,6 +166,16 @@ fun AboutScreen(onBack: () -> Unit) {
                 }
 
                 AboutCard(phase, Modifier.staggeredEntrance(3)) {
+                    Text("How LifeLoom works", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = colors.onSurface)
+                    Spacer(Modifier.height(14.dp))
+                    HowItWorks("🔒", "Everything stays on your phone", "Your pages, photos, habits and library live in a private database on this device. There is no account, no cloud copy and no tracking.")
+                    Spacer(Modifier.height(14.dp))
+                    HowItWorks("🌐", "The internet is only used to search", "When you add a movie, series, book or game, LifeLoom looks it up on Wikipedia, TVMaze, Steam and Open Library for the title, year and cover. Only your search words are sent, and the cover is saved on your phone.")
+                    Spacer(Modifier.height(14.dp))
+                    HowItWorks("🧱", "Under the hood", "Written in Kotlin with Jetpack Compose and Material 3. Data is stored in SQLite, images are loaded with Coil, and reminders are scheduled by Android itself.")
+                }
+
+                AboutCard(phase, Modifier.staggeredEntrance(4)) {
                     Text("Made with", fontSize = 12.sp, color = colors.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
                     Text("Kotlin and Jetpack Compose", fontWeight = FontWeight.SemiBold, color = colors.onSurface)
@@ -212,6 +222,19 @@ private fun AboutCard(phase: Float, modifier: Modifier = Modifier, content: @Com
             .glass(RoundedCornerShape(28.dp), phase)
             .padding(22.dp),
     ) { content() }
+}
+
+@Composable
+private fun HowItWorks(emoji: String, title: String, body: String) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.Top) {
+        Text(emoji, fontSize = 22.sp, modifier = Modifier.width(34.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold, color = colors.onSurface)
+            Spacer(Modifier.height(2.dp))
+            Text(body, fontSize = 14.sp, lineHeight = 21.sp, color = colors.onSurfaceVariant)
+        }
+    }
 }
 
 @Composable

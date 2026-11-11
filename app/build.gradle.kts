@@ -53,6 +53,13 @@ android {
         compose = true
     }
 
+    // content/quotes.json is the single copy of the daily quotes; it is packaged as an asset.
+    sourceSets {
+        getByName("main") {
+            assets.srcDir(rootProject.file("content"))
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

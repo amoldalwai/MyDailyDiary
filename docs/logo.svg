@@ -1,27 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="256" height="256">
   <defs>
     <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="10" y1="0" x2="98" y2="108">
-      <stop offset="0" stop-color="#86AE90"/>
-      <stop offset="0.55" stop-color="#4F7A5A"/>
-      <stop offset="1" stop-color="#2C5240"/>
+      <stop offset="0" stop-color="#F0A67C"/>
+      <stop offset="0.55" stop-color="#D4694F"/>
+      <stop offset="1" stop-color="#A8412F"/>
     </linearGradient>
+    <clipPath id="heart"><path d="M54 88 C16 63 16 30 39 25 C47 23.5 54 29 54 37 C54 29 61 23.5 69 25 C92 30 92 63 54 88 Z"/></clipPath>
   </defs>
   <rect width="108" height="108" rx="26" fill="url(#bg)"/>
-  <!-- vertical threads: coral first, then tan -->
-  <rect x="32" y="32" width="8" height="44" rx="2" fill="#E8806A"/>
-  <rect x="44" y="32" width="8" height="44" rx="2" fill="#E3CFAE"/>
-  <rect x="56" y="32" width="8" height="44" rx="2" fill="#E3CFAE"/>
-  <rect x="68" y="32" width="8" height="44" rx="2" fill="#E3CFAE"/>
-  <!-- horizontal threads: cream, the last one coral so the left and bottom threads draw an L -->
-  <rect x="32" y="32" width="44" height="8" rx="2" fill="#FFF3DF"/>
-  <rect x="32" y="44" width="44" height="8" rx="2" fill="#FFF3DF"/>
-  <rect x="32" y="56" width="44" height="8" rx="2" fill="#FFF3DF"/>
-  <rect x="32" y="68" width="44" height="8" rx="2" fill="#FF9F86"/>
-  <!-- vertical threads passing over at every other crossing -->
-  <rect x="32" y="56" width="8" height="8" fill="#E8806A"/>
-  <rect x="44" y="44" width="8" height="8" fill="#E3CFAE"/>
-  <rect x="44" y="68" width="8" height="8" fill="#E3CFAE"/>
-  <rect x="56" y="32" width="8" height="8" fill="#E3CFAE"/>
-  <rect x="56" y="56" width="8" height="8" fill="#E3CFAE"/>
-  <rect x="68" y="44" width="8" height="8" fill="#E3CFAE"/>
+  <g clip-path="url(#heart)">
+    <g fill="#E3CFAE"><rect x="17" y="18" width="9" height="76"/><rect x="30" y="18" width="9" height="76"/><rect x="43" y="18" width="9" height="76"/><rect x="56" y="18" width="9" height="76"/><rect x="69" y="18" width="9" height="76"/><rect x="82" y="18" width="9" height="76"/></g>
+    <g fill="#FFF3DF"><rect x="12" y="22" width="84" height="9"/><rect x="12" y="35" width="84" height="9"/><rect x="12" y="48" width="84" height="9"/><rect x="12" y="61" width="84" height="9"/><rect x="12" y="74" width="84" height="9"/></g>
+    <g fill="#E3CFAE">
+      <rect x="17" y="22" width="9" height="9"/><rect x="43" y="22" width="9" height="9"/><rect x="69" y="22" width="9" height="9"/>
+      <rect x="30" y="35" width="9" height="9"/><rect x="56" y="35" width="9" height="9"/><rect x="82" y="35" width="9" height="9"/>
+      <rect x="17" y="48" width="9" height="9"/><rect x="43" y="48" width="9" height="9"/><rect x="69" y="48" width="9" height="9"/>
+      <rect x="30" y="61" width="9" height="9"/><rect x="56" y="61" width="9" height="9"/><rect x="82" y="61" width="9" height="9"/>
+      <rect x="17" y="74" width="9" height="9"/><rect x="43" y="74" width="9" height="9"/><rect x="69" y="74" width="9" height="9"/>
+    </g>
+  </g>
 </svg>

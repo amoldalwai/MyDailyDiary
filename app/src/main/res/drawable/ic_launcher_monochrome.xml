@@ -4,12 +4,10 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:fillColor="#FF000000" android:pathData="M32,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M44,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M56,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M68,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M34,32h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M34,44h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M34,56h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <path android:fillColor="#FF000000" android:pathData="M34,68h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
+    <!-- Single-colour version for themed icons and notifications: the weave as a mesh inside the heart. -->
+    <group android:scaleX="0.8" android:scaleY="0.8" android:pivotX="54" android:pivotY="56">
+        <clip-path android:pathData="M54,88C16,63 16,30 39,25C47,23.5 54,29 54,37C54,29 61,23.5 69,25C92,30 92,63 54,88Z" />
+        <path android:fillColor="#FF000000" android:pathData="M17,18h9v76h-9zM30,18h9v76h-9zM43,18h9v76h-9zM56,18h9v76h-9zM69,18h9v76h-9zM82,18h9v76h-9z" />
+        <path android:fillColor="#FF000000" android:pathData="M12,22h84v9h-84zM12,35h84v9h-84zM12,48h84v9h-84zM12,61h84v9h-84zM12,74h84v9h-84z" />
+    </group>
 </vector>

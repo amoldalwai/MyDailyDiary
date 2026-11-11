@@ -4,21 +4,14 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- vertical threads: coral first, then tan -->
-    <path android:fillColor="#FFE8806A" android:pathData="M32,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M44,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M56,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M68,34a2,2 0,0 1,2 -2h4a2,2 0,0 1,2 2v40a2,2 0,0 1,-2 2h-4a2,2 0,0 1,-2 -2z" />
-    <!-- horizontal threads: cream, the last one coral so the left thread and bottom thread draw an L -->
-    <path android:fillColor="#FFFFF3DF" android:pathData="M34,32h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <path android:fillColor="#FFFFF3DF" android:pathData="M34,44h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <path android:fillColor="#FFFFF3DF" android:pathData="M34,56h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <path android:fillColor="#FFFF9F86" android:pathData="M34,68h40a2,2 0,0 1,2 2v4a2,2 0,0 1,-2 2h-40a2,2 0,0 1,-2 -2v-4a2,2 0,0 1,2 -2z" />
-    <!-- vertical threads passing over: every other crossing -->
-    <path android:fillColor="#FFE8806A" android:pathData="M32,56h8v8h-8z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M44,44h8v8h-8z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M44,68h8v8h-8z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M56,32h8v8h-8z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M56,56h8v8h-8z" />
-    <path android:fillColor="#FFE3CFAE" android:pathData="M68,44h8v8h-8z" />
+    <!-- The heart is drawn at 80% so it stays inside the adaptive-icon safe zone. -->
+    <group android:scaleX="0.8" android:scaleY="0.8" android:pivotX="54" android:pivotY="56">
+        <clip-path android:pathData="M54,88C16,63 16,30 39,25C47,23.5 54,29 54,37C54,29 61,23.5 69,25C92,30 92,63 54,88Z" />
+        <!-- vertical threads -->
+        <path android:fillColor="#FFE3CFAE" android:pathData="M17,18h9v76h-9zM30,18h9v76h-9zM43,18h9v76h-9zM56,18h9v76h-9zM69,18h9v76h-9zM82,18h9v76h-9z" />
+        <!-- horizontal threads -->
+        <path android:fillColor="#FFFFF3DF" android:pathData="M12,22h84v9h-84zM12,35h84v9h-84zM12,48h84v9h-84zM12,61h84v9h-84zM12,74h84v9h-84z" />
+        <!-- vertical threads passing over at every other crossing -->
+        <path android:fillColor="#FFE3CFAE" android:pathData="M17,22h9v9h-9zM43,22h9v9h-9zM69,22h9v9h-9zM30,35h9v9h-9zM56,35h9v9h-9zM82,35h9v9h-9zM17,48h9v9h-9zM43,48h9v9h-9zM69,48h9v9h-9zM30,61h9v9h-9zM56,61h9v9h-9zM82,61h9v9h-9zM17,74h9v9h-9zM43,74h9v9h-9zM69,74h9v9h-9z" />
+    </group>
 </vector>

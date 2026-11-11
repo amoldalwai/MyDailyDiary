@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import com.amoldalwai.diary.MainActivity
 import com.amoldalwai.diary.R
 import com.amoldalwai.diary.data.DiaryRepository
+import com.amoldalwai.diary.data.Quotes
 import com.amoldalwai.diary.data.SettingsStore
 import java.time.LocalDate
 import java.time.ZoneId
@@ -59,12 +60,16 @@ object ReminderScheduler {
             Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        val message = messages.random()
+        val prompt = messages.random()
+        val quote = Quotes.forDay(context, LocalDate.now())
+        val quoteLine = quote?.let { "“${it.text}”" + if (it.author.isNotBlank()) " — ${it.author}" else "" }
+        val message = quoteLine ?: prompt
+        val expanded = if (quoteLine != null) "$quoteLine\n\n$prompt" else prompt
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
             .setContentTitle("Time for your diary")
             .setContentText(message)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
             .setContentIntent(open)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

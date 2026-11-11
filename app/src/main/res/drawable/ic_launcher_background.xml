@@ -13,16 +13,10 @@
                 android:endX="98"
                 android:endY="108"
                 android:type="linear">
-                <item android:color="#FF86AE90" android:offset="0.0" />
-                <item android:color="#FF4F7A5A" android:offset="0.55" />
-                <item android:color="#FF2C5240" android:offset="1.0" />
+                <item android:color="#FFF0A67C" android:offset="0.0" />
+                <item android:color="#FFD4694F" android:offset="0.55" />
+                <item android:color="#FFA8412F" android:offset="1.0" />
             </gradient>
         </aapt:attr>
     </path>
-    <path
-        android:fillColor="#22FFFFFF"
-        android:pathData="M88,-6m-46,0a46,46 0,1 1,92 0a46,46 0,1 1,-92 0" />
-    <path
-        android:fillColor="#18FFFFFF"
-        android:pathData="M10,112m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
 </vector>

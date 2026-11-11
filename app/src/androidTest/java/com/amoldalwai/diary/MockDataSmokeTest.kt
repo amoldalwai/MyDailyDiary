@@ -51,7 +51,11 @@ class MockDataSmokeTest {
     private lateinit var firstEntryId: String
 
     @Before
-    fun seed() = runBlocking {
+    fun seed() {
+        runBlocking { seedAll() }
+    }
+
+    private suspend fun seedAll() {
         val today = LocalDate.now().toEpochDay()
         val diary = DiaryRepository(context)
         val moods = Mood.entries

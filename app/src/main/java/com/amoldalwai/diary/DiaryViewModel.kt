@@ -86,6 +86,7 @@ sealed interface Screen {
     data object Watch : Screen
     data object Profile : Screen
     data object LevelPath : Screen
+    data object About : Screen
     data class Detail(val id: String) : Screen
     data class Editor(val entry: DiaryEntry, val isNew: Boolean) : Screen
 }
@@ -95,7 +96,7 @@ fun Screen.isTab() = this is Screen.Home || this is Screen.Journal || this is Sc
 fun Screen.isHub() =
     this is Screen.Calendar || this is Screen.Search || this is Screen.Insights || this is Screen.Settings ||
         this is Screen.Album || this is Screen.Habits || this is Screen.Books || this is Screen.Games || this is Screen.Watch ||
-        this is Screen.Profile || this is Screen.LevelPath
+        this is Screen.Profile || this is Screen.LevelPath || this is Screen.About
 
 /** A one-off "you finished something" moment: confetti, a chime and a banner. */
 data class Celebration(val token: Int, val message: String)

@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.BarChart
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material3.Icon
@@ -44,6 +45,7 @@ fun MoreScreen(
     onInsights: () -> Unit,
     onHabits: () -> Unit,
     onSettings: () -> Unit,
+    onAbout: () -> Unit,
     profileName: String,
     profileEmoji: String,
     profilePhoto: java.io.File?,
@@ -66,7 +68,9 @@ fun MoreScreen(
             Spacer(Modifier.height(12.dp))
             MoreRow(Icons.Rounded.TaskAlt, "Daily habits", "Add habits and see your streaks", Modifier.staggeredEntrance(2), onHabits)
             Spacer(Modifier.height(12.dp))
-            MoreRow(Icons.Rounded.Settings, "Settings", "Colours, lock, reminder, backup and sections", Modifier.staggeredEntrance(3), onSettings)
+            MoreRow(Icons.Rounded.Settings, "Settings", "Colours, lock, reminders and sections", Modifier.staggeredEntrance(3), onSettings)
+            Spacer(Modifier.height(12.dp))
+            MoreRow(Icons.Rounded.Favorite, "About the creator", "Who made LifeLoom and why", Modifier.staggeredEntrance(4), onAbout)
         }
     }
 }

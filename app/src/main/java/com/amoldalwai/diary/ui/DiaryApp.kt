@@ -135,6 +135,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onInsights = { vm.openHub(Screen.Insights) },
                     onHabits = { vm.openHub(Screen.Habits) },
                     onSettings = { vm.openHub(Screen.Settings) },
+                    onAbout = { vm.openHub(Screen.About) },
                     profileName = vm.settings.profileName,
                     profileEmoji = vm.settings.profileEmoji,
                     profilePhoto = profilePhoto,
@@ -157,6 +158,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onJourney = { vm.openHub(Screen.LevelPath, from = Screen.Profile) },
                     onBack = vm::goBack,
                 )
+
+                Screen.About -> AboutScreen(onBack = vm::goBack)
 
                 Screen.LevelPath -> LevelPathScreen(
                     level = vm.level,

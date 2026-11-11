@@ -20,8 +20,8 @@ android {
         applicationId = "com.amoldalwai.diary"
         minSdk = 30
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     signingConfigs {
@@ -78,6 +78,5 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.coil.compose)
-    implementation(libs.play.services.auth)
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

@@ -1,8 +1,10 @@
 <div align="center">
 
-# 📖 My Daily Diary
+<img src="docs/logo.svg" width="120" alt="LifeLoom logo" />
 
-**A beautiful, private diary for Android — pages you can decorate, memories you can keep, and sync that stays in your own Google Drive.**
+# LifeLoom
+
+**Weave your days together: a private journal, habit tracker and personal library in one calm Android app.**
 
 [![Download APK](https://img.shields.io/badge/⬇_Download-APK-E8806A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/amoldalwai/MyDailyDiary/releases/latest/download/MyDailyDiary.apk)
 [![Latest release](https://img.shields.io/github/v/release/amoldalwai/MyDailyDiary?style=for-the-badge&color=C9566B&label=version)](https://github.com/amoldalwai/MyDailyDiary/releases/latest)
@@ -13,38 +15,78 @@
 
 ---
 
-## ✨ Why you'll like it
+## 📱 Screenshots
 
-| | |
-|---|---|
-| 🗒️ **Real diary feel** | Ruled, dotted or grid pages, margin line, binder holes, taped polaroid photos, page-turn animation. |
-| 🎨 **Make every page yours** | 12 page colours and gradients, 6 fonts, text size, line style and line colour — saved per entry. |
-| 📷 **Memories with photos** | Add photos, draw by hand, drop in stickers, dictate with your voice. |
-| ✍️ **Rich writing** | Bold and italic, moods, tags, and a date picker for back-dated entries. |
-| 🔎 **Find anything** | Search text, tags and moods. Month calendar with mood markers. |
-| 📊 **Insights** | Streaks, words written, mood breakdown, weekly activity. |
-| 🔔 **Gentle habits** | Daily reminder that skips days you've already written. "On this day" memories. |
-| 🔒 **Private by default** | Optional PIN and fingerprint lock. Everything is stored on your phone. |
-| ☁️ **Your Drive, your data** | Optional Google Drive sync into a private app folder only this app can open. |
-| 📄 **Export** | Share any entry, a month, or the whole diary as a PDF. |
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/home.png" width="250" alt="Home" /><br /><b>Home</b><br />Daily photo, mood, habits, recent pages</td>
+    <td align="center"><img src="docs/screenshots/quickadd.png" width="250" alt="Quick Add" /><br /><b>Quick Add</b><br />Mood, activities, a note and what you read, played or watched</td>
+    <td align="center"><img src="docs/screenshots/detail.png" width="250" alt="A journal page" /><br /><b>A journal page</b><br />Paper look, habits and taped photos</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/journal.png" width="250" alt="Journal" /><br /><b>Journal</b><br />Every page you've written</td>
+    <td align="center"><img src="docs/screenshots/calendar.png" width="250" alt="Calendar" /><br /><b>Calendar</b><br />Moods, and posters of what you finished</td>
+    <td align="center"><img src="docs/screenshots/library.png" width="250" alt="Library" /><br /><b>Library</b><br />Books, games, movies and series, with search</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/habitsweek.png" width="250" alt="Habits this week" /><br /><b>Habits, this week</b><br />Last 7 days in one table</td>
+    <td align="center"><img src="docs/screenshots/profile.png" width="250" alt="Profile" /><br /><b>Profile</b><br />Level, rank, medals and awards</td>
+    <td align="center"><img src="docs/screenshots/path.png" width="250" alt="Level journey" /><br /><b>Level journey</b><br />A map of 50 levels across 10 ranks</td>
+  </tr>
+</table>
+
+## ✨ Features
+
+### 📓 Journal
+- **Real diary feel**: ruled, dotted or grid pages, margin line, binder holes, taped polaroid photos and a page-turn animation.
+- **Make every page yours**: 12 page colours and gradients, 6 fonts, text size, line style and line colour, saved per entry.
+- **Rich writing**: bold and italic, moods, tags, voice dictation, stickers and hand drawing.
+- **Quick Add**: the fast way to log a day. Pick a mood, tap what you did (Work, Study, Health, Social, Hobbies and your own groups), jot a note from a template, and save. Activity chips can be switched off in Settings.
+- **Photos**: add pictures to any page, and browse them all in the stamp album.
+- **Find anything**: search text, tags and moods, plus a month calendar with mood markers.
+- **On this day** memories, **insights** (streaks, words, mood breakdown, weekly activity) and **PDF export** of an entry, a month or the whole journal.
+- **Honest dates**: new pages can be for today or a coming day, not back-dated.
+
+### ✅ Habits
+- Add daily habits and tick them from Home, Quick Add or any journal page, with confetti and a chime.
+- **Streaks** with best streak and a 28-day history for each habit.
+- **This week** tab: habits as rows and the last 7 days as columns, in one glance.
+- **Habit nudges**: one friendly question at a time ("Did you complete Gym today?", "Don't break your 5-day streak of Read 🔥"), spaced through a time window you choose. Each habit can be switched off or given its own window, and a **Done** button on the notification ticks it without opening the app. A habit you've done is not asked again that day.
+
+### 📚 Library
+- **Books** (Open Library), **Games** (Steam and Wikipedia) and **Movies & Series** (Wikipedia and TVMaze), with posters, shelves, ratings out of 10 and short reviews.
+- **Search across the whole library** from one box.
+- **No duplicates**: adding a title you already have reuses it.
+- **Attach items to journal pages**: a Books · Movies · Games block at the bottom of every note and Quick Add, with status chips that update your library.
+- **Completion celebrations**: finishing a book, game, movie or series sets off confetti, a chime and a banner, and its poster appears on that day in the calendar.
+- Posters are stored small to keep the app light.
+
+### 🏆 Progress
+- Earn **XP** from entries, photos, streaks, perfect habit days, finished titles, ratings and reviews.
+- **50 levels in 10 ranks** (Seedling to Mythic) that get steadily harder, shown on a Candy Crush style **level journey** map.
+- **10 awards** in bronze, silver and gold: Bookaholic, Game Expert, Movie Buff, Binge Master, Diarist, Streak Keeper, Photographer, Critic, Habit Hero and Collector.
+- **Profile** with your own photo, name, bio and a banner unlocked by rank.
+- Animated and audible moments: a splash when you save an entry, a full-screen level-up and rank-up, and award banners.
+
+### 🎨 Personal
+- 4 colour palettes (Sage, Teal, Lavender, Terracotta), light, dark or system theme.
+- A different photo at the top of Home each day (fetched when you're online, kept for offline use), with a refresh button.
+- Turn Books, Games, Movies & Series and the activity chips on or off.
+- Daily writing reminder that skips days you've already written.
+
+### 🔒 Private by default
+- No account, no ads, no analytics, no tracking.
+- Entries, habits and photos stay in the app's private storage on your phone.
+- Optional PIN and fingerprint lock.
+- The internet is used only to search book, game and movie details and fetch posters, and to fetch the Home photo.
 
 ## ⬇️ Install
 
 1. Tap **Download APK** above on your Android phone.
 2. Open the downloaded file. If Android asks, allow **Install unknown apps** for your browser.
-3. Open **Diary** and start writing.
+3. Open **LifeLoom** and start writing.
 
 > Requires **Android 12 or newer**.
-
-## ☁️ Google Drive sync (optional)
-
-Open **Settings → Google Drive sync → Connect Google account**. Entries and photos are copied to a hidden folder in *your own* Google Drive (the `drive.appdata` scope) — nobody else, including the developer, can read them. Sign in on a second phone with the same account and your diary appears there too.
-
-## 🔐 Privacy
-
-- No ads, no analytics, no tracking.
-- Entries and photos live in the app's private storage on your phone.
-- Sync, if you turn it on, goes straight between your phone and your own Google Drive.
 
 ## 🛠️ Build from source
 
@@ -56,11 +98,13 @@ cd MyDailyDiary
 
 The APK is written to `app/build/outputs/apk/debug/`. You need JDK 17 and the Android SDK (platform 35).
 
-Google sign-in only works for builds signed with a key registered in your own Google Cloud project, so create an Android OAuth client with the package name `com.amoldalwai.diary` and your signing key's SHA-1 if you want sync in your own build.
-
 ## 🧱 Built with
 
-Kotlin · Jetpack Compose · Material 3 · SQLite · Coil · Google Identity Authorization · Drive REST API
+Kotlin · Jetpack Compose · Material 3 · SQLite · Coil · Open Library · Steam Store · Wikipedia · TVMaze · Picsum
+
+## 🗂️ Google Drive sync
+
+Google Drive sync is switched off for now. The complete implementation is kept on the [`archive/google-drive-sync`](https://github.com/amoldalwai/MyDailyDiary/tree/archive/google-drive-sync) branch.
 
 ---
 

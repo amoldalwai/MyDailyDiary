@@ -225,7 +225,7 @@ fun LogoMark(modifier: Modifier = Modifier) {
         Image(painterResource(R.drawable.ic_launcher_background), null, Modifier.fillMaxSize())
         Image(
             painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = "Diary logo",
+            contentDescription = "LifeLoom logo",
             modifier = Modifier.fillMaxSize().graphicsLayer {
                 scaleX = 1.5f
                 scaleY = 1.5f

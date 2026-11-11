@@ -1,0 +1,252 @@
+[
+  {
+    "id": 1,
+    "quote": "We write to taste life twice.",
+    "author": "Anaïs Nin"
+  },
+  {
+    "id": 2,
+    "quote": "Keep a diary, and one day it'll keep you.",
+    "author": "Mae West"
+  },
+  {
+    "id": 3,
+    "quote": "The palest ink is better than the best memory.",
+    "author": "Chinese Proverb"
+  },
+  {
+    "id": 4,
+    "quote": "Every moment is a fresh beginning.",
+    "author": "T.S. Eliot"
+  },
+  {
+    "id": 5,
+    "quote": "Life is a story you write with your actions.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 6,
+    "quote": "Collect moments, not things.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 7,
+    "quote": "Memory is the diary we all carry about with us.",
+    "author": "Oscar Wilde"
+  },
+  {
+    "id": 8,
+    "quote": "A day unreviewed is a day unlived.",
+    "author": "Socrates"
+  },
+  {
+    "id": 9,
+    "quote": "Your life is your story. Write it well.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 10,
+    "quote": "We do not remember days, we remember moments.",
+    "author": "Cesare Pavese"
+  },
+  {
+    "id": 11,
+    "quote": "Capture the bits of joy before they fade.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 12,
+    "quote": "A diary is a photograph of the soul.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 13,
+    "quote": "Yesterday is history, tomorrow is a mystery, today is a gift.",
+    "author": "Eleanor Roosevelt"
+  },
+  {
+    "id": 14,
+    "quote": "Preserve your memories. They're all that's left you.",
+    "author": "Paul Simon"
+  },
+  {
+    "id": 15,
+    "quote": "Look back to learn, look forward to grow.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 16,
+    "quote": "We are what we repeatedly do.",
+    "author": "Aristotle"
+  },
+  {
+    "id": 17,
+    "quote": "Small daily improvements over time lead to stunning results.",
+    "author": "Robin Sharma"
+  },
+  {
+    "id": 18,
+    "quote": "Habits are the compound interest of self-improvement.",
+    "author": "James Clear"
+  },
+  {
+    "id": 19,
+    "quote": "First we make our habits, then our habits make us.",
+    "author": "John Dryden"
+  },
+  {
+    "id": 20,
+    "quote": "You do not rise to the level of your goals. You fall to the level of your systems.",
+    "author": "James Clear"
+  },
+  {
+    "id": 21,
+    "quote": "Your habits decide your future.",
+    "author": "John C. Maxwell"
+  },
+  {
+    "id": 22,
+    "quote": "The secret of your future is hidden in your daily routine.",
+    "author": "Mike Murdock"
+  },
+  {
+    "id": 23,
+    "quote": "Drop by drop is the water pot filled.",
+    "author": "Buddha"
+  },
+  {
+    "id": 24,
+    "quote": "Motivation gets you started. Habit keeps you going.",
+    "author": "Jim Ryun"
+  },
+  {
+    "id": 25,
+    "quote": "Great things are done by a series of small things brought together.",
+    "author": "Vincent Van Gogh"
+  },
+  {
+    "id": 26,
+    "quote": "Good habits are the foundation of a good life.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 27,
+    "quote": "Change your habits, change your life.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 28,
+    "quote": "Success is the sum of small efforts, repeated day in and day out.",
+    "author": "Robert Collier"
+  },
+  {
+    "id": 29,
+    "quote": "What you do every day matters more than what you do once in a while.",
+    "author": "Gretchen Rubin"
+  },
+  {
+    "id": 30,
+    "quote": "Habit is a cable; we weave a thread of it each day.",
+    "author": "Horace Mann"
+  },
+  {
+    "id": 31,
+    "quote": "Consistency trumps intensity.",
+    "author": "Bruce Lee"
+  },
+  {
+    "id": 32,
+    "quote": "The point is to master the habit of showing up.",
+    "author": "James Clear"
+  },
+  {
+    "id": 33,
+    "quote": "Consistency is the DNA of mastery.",
+    "author": "Robin Sharma"
+  },
+  {
+    "id": 34,
+    "quote": "Without consistency, you'll never finish.",
+    "author": "Denzel Washington"
+  },
+  {
+    "id": 35,
+    "quote": "Never take two days off in a row.",
+    "author": "Haruki Murakami"
+  },
+  {
+    "id": 36,
+    "quote": "It’s not what we do once in a while that shapes our lives, but what we do consistently.",
+    "author": "Tony Robbins"
+  },
+  {
+    "id": 37,
+    "quote": "Progress, not perfection.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 38,
+    "quote": "Showing up is 80 percent of life.",
+    "author": "Wood Allen"
+  },
+  {
+    "id": 39,
+    "quote": "Small steps in the right direction can turn into the biggest step of your life.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 40,
+    "quote": "Be regular and orderly in your life.",
+    "author": "Gustave Flaubert"
+  },
+  {
+    "id": 41,
+    "quote": "The hallmark of excellence is consistency.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 42,
+    "quote": "Consistency turns average into excellence.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 43,
+    "quote": "Do it anyway. Especially when you don't feel like it.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 44,
+    "quote": "The magic you're looking for is in the work you're avoiding.",
+    "author": "Anonymous"
+  },
+  {
+    "id": 45,
+    "quote": "Patience, persistence, and perspiration make an unbeatable combination.",
+    "author": "Napoleon Hill"
+  },
+  {
+    "id": 46,
+    "quote": "I write entirely to find out what I'm thinking.",
+    "author": "Joan Didion"
+  },
+  {
+    "id": 47,
+    "quote": "Tell yourself the truth without fear.",
+    "author": "Franz Kafka"
+  },
+  {
+    "id": 48,
+    "quote": "To know yourself is the beginning of all wisdom.",
+    "author": "Aristotle"
+  },
+  {
+    "id": 49,
+    "quote": "The unexamined life is not worth living.",
+    "author": "Socrates"
+  },
+  {
+    "id": 50,
+    "quote": "Your journal is a safe place to land.",
+    "author": "Anonymous"
+  }
+]

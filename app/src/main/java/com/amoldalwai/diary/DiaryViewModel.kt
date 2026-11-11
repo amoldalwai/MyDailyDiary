@@ -54,14 +54,8 @@ import com.amoldalwai.diary.data.LevelInfo
 import com.amoldalwai.diary.data.SettingsStore
 import com.amoldalwai.diary.data.StorageUsage
 import com.amoldalwai.diary.reminder.ReminderScheduler
-import com.amoldalwai.diary.sync.AuthResult
-import com.amoldalwai.diary.sync.DriveAuth
-import com.amoldalwai.diary.sync.DriveAuthException
-import com.amoldalwai.diary.sync.DriveSync
-import com.amoldalwai.diary.sync.SyncState
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -121,15 +115,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private val pendingImages = mutableSetOf<String>()
 
     val settings = SettingsStore(app)
-
-    private val driveAuth = DriveAuth(app)
-    private val driveSync = DriveSync(repo, habitsRepo, booksRepo, gamesRepo, watchRepo)
-    private val syncMutex = Mutex()
-    private var resyncRequested = false
-    private var syncDebounce: Job? = null
-
-    var syncState by mutableStateOf<SyncState>(SyncState.Idle)
-        private set
 
     var screen by mutableStateOf<Screen>(Screen.Home)
         private set
@@ -261,7 +246,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             reloadPersonal()
             progressReady = true
             refreshProgress()
-            runSync()
         }
         viewModelScope.launch {
             snapshotFlow { listOf(books, games, watchItems, habits, homeStats, habitDone.values.sumOf { it.size }) }
@@ -392,7 +376,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onAppStarted() {
         if (stoppedAt != 0L) {
-            viewModelScope.launch { runSync() }
             viewModelScope.launch { refreshHero() }
             // A habit may have been ticked from a notification while the app was away.
             viewModelScope.launch { reloadPersonal() }
@@ -552,7 +535,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             habitsRepo.setDone(habitId, day, done)
             if (screen == Screen.Habits) habitStats = habitsRepo.stats(LocalDate.now())
-            scheduleSync()
         }
     }
 
@@ -561,7 +543,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             habitsRepo.save(Habit(name = name.trim(), emoji = emoji, position = habits.size))
             reloadPersonal()
             loadHabitStats()
-            scheduleSync()
         }
     }
 
@@ -570,7 +551,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             habitsRepo.save(habit.copy(name = name.trim(), emoji = emoji, updatedAt = System.currentTimeMillis()))
             reloadPersonal()
             loadHabitStats()
-            scheduleSync()
         }
     }
 
@@ -579,7 +559,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             habitsRepo.delete(habit.id)
             reloadPersonal()
             loadHabitStats()
-            scheduleSync()
         }
     }
 
@@ -617,7 +596,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             if (updated != null && updated.status == BookStatus.Finished && book.status != BookStatus.Finished) {
                 celebrate("Finished “${updated.title}”")
             }
-            scheduleSync()
         }
     }
 
@@ -646,7 +624,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             books = booksRepo.books()
             if (status == BookStatus.Finished) celebrate("Finished “${book.title}”")
             onDone(book.id)
-            scheduleSync()
         }
     }
 
@@ -670,7 +647,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             booksRepo.save(fixed.copy(updatedAt = now))
             books = booksRepo.books()
-            scheduleSync()
         }
     }
 
@@ -678,7 +654,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             booksRepo.delete(book.id)
             books = booksRepo.books()
-            scheduleSync()
         }
     }
 
@@ -714,7 +689,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             games = gamesRepo.games()
             if (status == GameStatus.Completed) celebrate("Completed “${game.title}”")
             onDone(game.id)
-            scheduleSync()
         }
     }
 
@@ -734,7 +708,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             gamesRepo.save(fixed.copy(updatedAt = now))
             games = gamesRepo.games()
-            scheduleSync()
         }
     }
 
@@ -742,7 +715,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             gamesRepo.delete(game.id)
             games = gamesRepo.games()
-            scheduleSync()
         }
     }
 
@@ -774,7 +746,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             watchItems = watchRepo.items()
             if (status == WatchStatus.Watched) celebrate("Watched “${item.title}”")
             onDone(item.id)
-            scheduleSync()
         }
     }
 
@@ -796,7 +767,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             watchRepo.save(fixed.copy(updatedAt = now))
             watchItems = watchRepo.items()
-            scheduleSync()
         }
     }
 
@@ -804,7 +774,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             watchRepo.delete(item.id)
             watchItems = watchRepo.items()
-            scheduleSync()
         }
     }
 
@@ -891,7 +860,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             repo.save(entry)
             afterChange()
             showEntrySplash(0)
-            scheduleSync()
         }
     }
 
@@ -908,7 +876,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.save(updated)
             afterChange()
-            scheduleSync()
         }
     }
 
@@ -1013,7 +980,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             repo.deleteImages(orphans)
             afterChange()
             if (isNew) showEntrySplash(updated.images.size)
-            scheduleSync()
         }
     }
 
@@ -1030,109 +996,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             repo.delete(entry)
             afterChange()
-            scheduleSync()
-        }
-    }
-
-    // ---- Google Drive sync ----
-
-    fun connectDrive(onConsent: (PendingIntent) -> Unit) {
-        viewModelScope.launch {
-            try {
-                when (val result = driveAuth.authorize()) {
-                    is AuthResult.Token -> completeConnect(result.accessToken)
-                    is AuthResult.NeedsConsent -> onConsent(result.pendingIntent)
-                }
-            } catch (e: Exception) {
-                syncState = SyncState.Error(e.message ?: "Couldn't connect to Google")
-            }
-        }
-    }
-
-    fun onConsentResult(data: Intent?) {
-        viewModelScope.launch {
-            try {
-                completeConnect(driveAuth.tokenFromIntent(data))
-            } catch (e: Exception) {
-                syncState = SyncState.Error("Google Drive permission wasn't granted")
-            }
-        }
-    }
-
-    fun syncNow() {
-        viewModelScope.launch { runSync() }
-    }
-
-    fun disconnectDrive() {
-        viewModelScope.launch {
-            settings.driveEmail?.let { email -> runCatching { driveAuth.revoke(email) } }
-            settings.updateDrive(null)
-            syncState = SyncState.Idle
-        }
-    }
-
-    private suspend fun completeConnect(token: String) {
-        settings.updateDrive(driveAuth.userEmail(token) ?: "Google account")
-        runSync()
-    }
-
-    private fun scheduleSync() {
-        if (!settings.driveConnected) return
-        syncDebounce?.cancel()
-        syncDebounce = viewModelScope.launch {
-            delay(3_000)
-            runSync()
-        }
-    }
-
-    private suspend fun runSync() {
-        if (!settings.driveConnected) return
-        if (!syncMutex.tryLock()) {
-            resyncRequested = true
-            return
-        }
-        try {
-            // A started sync always finishes, even if a newer edit cancels the debounce job.
-            withContext(NonCancellable) {
-                do {
-                    resyncRequested = false
-                    syncOnce()
-                } while (resyncRequested)
-            }
-        } finally {
-            syncMutex.unlock()
-        }
-    }
-
-    private suspend fun syncOnce() {
-        syncState = SyncState.Syncing
-        try {
-            var token = (driveAuth.authorize() as? AuthResult.Token)?.accessToken
-            if (token == null) {
-                syncState = SyncState.NeedsReconnect
-                return
-            }
-            val summary = try {
-                driveSync.run(token)
-            } catch (e: DriveAuthException) {
-                driveAuth.clearToken(token)
-                token = (driveAuth.authorize() as? AuthResult.Token)?.accessToken
-                if (token == null) {
-                    syncState = SyncState.NeedsReconnect
-                    return
-                }
-                driveSync.run(token)
-            }
-            settings.updateLastSync(System.currentTimeMillis())
-            syncState = SyncState.Idle
-            if (summary.changedLocal) {
-                afterChange()
-                reloadPersonal()
-            }
-        } catch (e: Exception) {
-            syncState = SyncState.Error(
-                if (e is IOException) "Couldn't reach Google Drive. Check your connection." else e.message ?: "Sync failed",
-            )
         }
     }
 

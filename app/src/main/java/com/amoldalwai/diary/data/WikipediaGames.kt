@@ -13,7 +13,7 @@ import java.net.URLEncoder
  * cover art is the article's infobox image, which the API only exposes as a file name for non-free images.
  */
 object WikipediaGames {
-    const val USER_AGENT = "MyDailyDiary/1.1 (https://github.com/amoldalwai/MyDailyDiary)"
+    const val USER_AGENT = "LifeLoom/1.2 (https://github.com/amoldalwai/MyDailyDiary)"
 
     // Descriptions such as "Racing video game series" or "British video game developer" are not games.
     private val notAGame = Regex(

@@ -110,13 +110,6 @@ class SettingsStore(context: Context) {
         private set
     var reminderMinute by mutableIntStateOf(prefs.getInt("reminderMinute", 0))
         private set
-    var driveEmail by mutableStateOf(prefs.getString("driveEmail", null))
-        private set
-    var lastSyncAt by mutableLongStateOf(prefs.getLong("lastSyncAt", 0L))
-        private set
-
-    val driveConnected: Boolean get() = driveEmail != null
-
     var booksEnabled by mutableStateOf(prefs.getBoolean("booksEnabled", true))
         private set
     var habitSound by mutableStateOf(prefs.getBoolean("habitSound", true))
@@ -194,17 +187,6 @@ class SettingsStore(context: Context) {
     fun updateHabitSound(enabled: Boolean) {
         habitSound = enabled
         prefs.edit().putBoolean("habitSound", enabled).apply()
-    }
-
-    fun updateDrive(email: String?) {
-        driveEmail = email
-        prefs.edit().apply { if (email == null) remove("driveEmail").remove("lastSyncAt") else putString("driveEmail", email) }.apply()
-        if (email == null) lastSyncAt = 0L
-    }
-
-    fun updateLastSync(at: Long) {
-        lastSyncAt = at
-        prefs.edit().putLong("lastSyncAt", at).apply()
     }
 
     fun updateTheme(mode: ThemeMode) {

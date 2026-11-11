@@ -19,7 +19,7 @@ data class BookResult(
 
 /** Open Library search and covers (https://openlibrary.org/dev/docs/api/search); no account or key needed. */
 object OpenLibrary {
-    private const val USER_AGENT = "MyDailyDiary/1.1 (https://github.com/amoldalwai/MyDailyDiary)"
+    private const val USER_AGENT = "LifeLoom/1.2 (https://github.com/amoldalwai/MyDailyDiary)"
 
     fun coverUrl(coverId: Long, size: String = "M") = "https://covers.openlibrary.org/b/id/$coverId-$size.jpg"
 

@@ -1,14 +1,11 @@
 package com.amoldalwai.diary.ui
 
 import android.Manifest
-import android.app.PendingIntent
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -74,7 +71,6 @@ import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.SettingsStore
 import com.amoldalwai.diary.data.StorageUsage
 import com.amoldalwai.diary.data.ThemeMode
-import com.amoldalwai.diary.sync.SyncState
 import com.amoldalwai.diary.util.PdfExporter
 import kotlinx.coroutines.launch
 import java.io.File
@@ -94,11 +90,6 @@ fun SettingsScreen(
     loadForExport: suspend (from: Long?, to: Long?) -> List<DiaryEntry>,
     onBack: () -> Unit,
     onSetReminder: (enabled: Boolean, hour: Int, minute: Int) -> Unit,
-    syncState: SyncState,
-    onConnectDrive: ((PendingIntent) -> Unit) -> Unit,
-    onConsentResult: (Intent?) -> Unit,
-    onSyncNow: () -> Unit,
-    onDisconnectDrive: () -> Unit,
     storage: StorageUsage?,
     habitCount: Int,
     habits: List<Habit>,
@@ -116,12 +107,7 @@ fun SettingsScreen(
 
     var pinFlow by remember { mutableStateOf(PinFlow.None) }
     var showTimePicker by remember { mutableStateOf(false) }
-    var confirmDisconnect by remember { mutableStateOf(false) }
     val biometricAvailable = remember { BiometricHelper.isAvailable(context) }
-
-    val driveConsent = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        onConsentResult(result.data)
-    }
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
@@ -299,66 +285,19 @@ fun SettingsScreen(
                         if (NotificationManagerCompat.from(context).areNotificationsEnabled()) {
                             ReminderScheduler.notifyNow(context)
                         } else {
-                            Toast.makeText(context, "Notifications are turned off for Diary in system settings", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Notifications are turned off for LifeLoom in system settings", Toast.LENGTH_LONG).show()
                         }
                     }) { Text("Send a test notification") }
                     if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true) || Build.MANUFACTURER.equals("Redmi", ignoreCase = true) || Build.MANUFACTURER.equals("POCO", ignoreCase = true)) {
                         Text(
-                            "Xiaomi tip: if reminders don't arrive, open Settings → Apps → Diary and set Battery saver to \"No restrictions\" and turn on Autostart.",
+                            "Xiaomi tip: if reminders don't arrive, open Settings → Apps → LifeLoom and set Battery saver to \"No restrictions\" and turn on Autostart.",
                             fontSize = 12.sp,
                             color = colors.onSurfaceVariant,
                         )
                     }
                 }
 
-                SettingsCard("Google Drive sync", Modifier.staggeredEntrance(3)) {
-                    if (!settings.driveConnected) {
-                        Text(
-                            "Keep your diary safe in your own Google Drive and in sync across your phones. " +
-                                "Entries and photos go to a private folder that only this app can open.",
-                            color = colors.onSurfaceVariant,
-                            fontSize = 14.sp,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = {
-                            onConnectDrive { pending ->
-                                driveConsent.launch(IntentSenderRequest.Builder(pending.intentSender).build())
-                            }
-                        }) { Text("Connect Google account") }
-                    } else {
-                        Text("Signed in as", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                        Text(settings.driveEmail.orEmpty(), color = colors.onSurface, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (syncState is SyncState.Syncing) {
-                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            Text(
-                                when (syncState) {
-                                    SyncState.Syncing -> "Syncing…"
-                                    SyncState.NeedsReconnect -> "Google Drive access expired. Disconnect and connect again."
-                                    is SyncState.Error -> syncState.message
-                                    SyncState.Idle ->
-                                        if (settings.lastSyncAt == 0L) {
-                                            "Not synced yet"
-                                        } else {
-                                            "Last synced " + Instant.ofEpochMilli(settings.lastSyncAt).atZone(ZoneId.systemDefault())
-                                                .format(DateTimeFormatter.ofPattern("d MMM, h:mm a", Locale.getDefault()))
-                                        }
-                                },
-                                fontSize = 13.sp,
-                                color = if (syncState is SyncState.Error || syncState is SyncState.NeedsReconnect) colors.error else colors.onSurfaceVariant,
-                            )
-                        }
-                        Row {
-                            TextButton(onClick = onSyncNow, enabled = syncState !is SyncState.Syncing) { Text("Sync now") }
-                            TextButton(onClick = { confirmDisconnect = true }) { Text("Disconnect") }
-                        }
-                    }
-                }
-
-                SettingsCard("Storage", Modifier.staggeredEntrance(4)) {
+                SettingsCard("Storage", Modifier.staggeredEntrance(3)) {
                     if (storage == null) {
                         CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
@@ -369,7 +308,7 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold,
                             color = colors.onSurface,
                         )
-                        Text("used by Diary on this phone", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                        Text("used by LifeLoom on this phone", fontSize = 13.sp, color = colors.onSurfaceVariant)
                         Spacer(Modifier.height(14.dp))
                         val photoShare = if (storage.totalBytes == 0L) 0f else storage.photoBytes.toFloat() / storage.totalBytes
                         Row(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(colors.surfaceVariant)) {
@@ -386,7 +325,7 @@ fun SettingsScreen(
                         StorageLine(colors.tertiary, "Entries and text", "${storage.entryCount} ${if (storage.entryCount == 1) "entry" else "entries"}", size(storage.dataBytes))
                         Spacer(Modifier.height(12.dp))
                         Text(
-                            "Photos are saved at a reduced size to keep this small. Turning on Google Drive sync stores a copy in your own Drive, which counts toward your Google storage.",
+                            "Photos are saved at a reduced size to keep this small.",
                             fontSize = 12.sp,
                             color = colors.onSurfaceVariant,
                         )
@@ -414,21 +353,6 @@ fun SettingsScreen(
                 Spacer(Modifier.height(24.dp))
             }
         }
-    }
-
-    if (confirmDisconnect) {
-        AlertDialog(
-            onDismissRequest = { confirmDisconnect = false },
-            title = { Text("Disconnect Google Drive?") },
-            text = { Text("Syncing stops. Your entries stay on this phone and the copy in your Drive is kept.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmDisconnect = false
-                    onDisconnectDrive()
-                }) { Text("Disconnect") }
-            },
-            dismissButton = { TextButton(onClick = { confirmDisconnect = false }) { Text("Cancel") } },
-        )
     }
 
     nudgeTarget?.let { target ->

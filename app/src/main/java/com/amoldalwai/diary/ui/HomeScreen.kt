@@ -179,7 +179,7 @@ private fun Greeting(
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 20.dp)) {
                 Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(4.dp))
-                Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             val spin = rememberInfiniteTransition(label = "heroSpin")
             val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")
@@ -205,7 +205,7 @@ private fun Greeting(
         Column(Modifier.weight(1f)) {
             Text(date, fontSize = 13.sp, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
-            Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Column(Modifier.tourTarget("home_profile").bouncyClick(onProfile).padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             AvatarRing(profileEmoji, profilePhoto, level, 54.dp)

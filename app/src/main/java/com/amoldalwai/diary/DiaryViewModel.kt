@@ -165,6 +165,10 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     var insights by mutableStateOf<InsightStats?>(null)
         private set
 
+    /** Per-day entry counts and moods for the last year, for the Insights charts. */
+    var yearMarkers by mutableStateOf<Map<Long, DayMarker>>(emptyMap())
+        private set
+
     // Stamp album: photos of a few entries at a time, newest first.
     var albumPhotos by mutableStateOf<List<PhotoRef>>(emptyList())
         private set
@@ -918,7 +922,11 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             }
             Screen.Insights -> {
                 insights = null
-                viewModelScope.launch { insights = repo.insightStats(LocalDate.now()) }
+                viewModelScope.launch {
+                    val today = LocalDate.now()
+                    yearMarkers = repo.monthMarkers(today.minusDays(370).toEpochDay(), today.toEpochDay())
+                    insights = repo.insightStats(today)
+                }
                 loadHabitStats()
             }
             Screen.Search -> runSearch()

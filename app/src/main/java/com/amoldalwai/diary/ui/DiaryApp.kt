@@ -249,7 +249,14 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onOpenEntry = { vm.openDetail(it.id, from = Screen.Search) },
                 )
 
-                Screen.Insights -> InsightsScreen(stats = vm.insights, habitStats = vm.habitStats, onBack = vm::goBack)
+                Screen.Insights -> InsightsScreen(
+                    stats = vm.insights,
+                    yearMarkers = vm.yearMarkers,
+                    habitStats = vm.habitStats,
+                    library = vm.progressStats,
+                    level = vm.level,
+                    onBack = vm::goBack,
+                )
 
                 Screen.Settings -> SettingsScreen(
                     settings = vm.settings,

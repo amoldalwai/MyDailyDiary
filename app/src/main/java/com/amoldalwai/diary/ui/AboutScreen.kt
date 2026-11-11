@@ -85,8 +85,9 @@ fun AboutScreen(onBack: () -> Unit) {
                         end = Offset(w * (1f - phase * 0.5f), h),
                     ),
                 )
-                drawCircle(c3.copy(alpha = 0.55f), w * 0.55f, Offset(w * (0.1f + 0.6f * phase), h * (0.2f + 0.1f * phase)))
-                drawCircle(c1.copy(alpha = 0.5f), w * 0.5f, Offset(w * (0.95f - 0.6f * phase), h * (0.78f - 0.12f * phase)))
+                drawCircle(c3.copy(alpha = 0.85f), w * 0.55f, Offset(w * (0.1f + 0.6f * phase), h * (0.2f + 0.1f * phase)))
+                drawCircle(c1.copy(alpha = 0.85f), w * 0.5f, Offset(w * (0.95f - 0.6f * phase), h * (0.78f - 0.12f * phase)))
+                drawCircle(c2.copy(alpha = 0.8f), w * 0.4f, Offset(w * (0.5f + 0.3f * phase), h * (0.5f - 0.2f * phase)))
             },
     ) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -100,7 +101,7 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Spacer(Modifier.height(4.dp))
 
-                AboutCard(Modifier.staggeredEntrance(0)) {
+                AboutCard(phase, Modifier.staggeredEntrance(0)) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(
                             Modifier
@@ -132,7 +133,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     }
                 }
 
-                AboutCard(Modifier.staggeredEntrance(1)) {
+                AboutCard(phase, Modifier.staggeredEntrance(1)) {
                     Text("Why I built LifeLoom", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = colors.onSurface)
                     Spacer(Modifier.height(10.dp))
                     Text(
@@ -148,15 +149,23 @@ fun AboutScreen(onBack: () -> Unit) {
                         lineHeight = 23.sp,
                         color = colors.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "And a special thank you to my wife, Shilpa, for her love and support. 💛",
+                        fontSize = 14.sp,
+                        lineHeight = 21.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.primary,
+                    )
                 }
 
                 Row(Modifier.staggeredEntrance(2), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Promise("🎟️", "No subscriptions", Modifier.weight(1f))
-                    Promise("🔒", "Private on your phone", Modifier.weight(1f))
-                    Promise("🚫", "No ads", Modifier.weight(1f))
+                    Promise("🎟️", "No subscriptions", phase, Modifier.weight(1f))
+                    Promise("🔒", "Private on your phone", phase, Modifier.weight(1f))
+                    Promise("🚫", "No ads", phase, Modifier.weight(1f))
                 }
 
-                AboutCard(Modifier.staggeredEntrance(3)) {
+                AboutCard(phase, Modifier.staggeredEntrance(3)) {
                     Text("Made with", fontSize = 12.sp, color = colors.onSurfaceVariant)
                     Spacer(Modifier.height(4.dp))
                     Text("Kotlin and Jetpack Compose", fontWeight = FontWeight.SemiBold, color = colors.onSurface)
@@ -172,29 +181,45 @@ fun AboutScreen(onBack: () -> Unit) {
     }
 }
 
+/** Frosted-glass look: translucent tinted fill, bright edge and a soft sheen that drifts across. */
 @Composable
-private fun AboutCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+private fun Modifier.glass(shape: RoundedCornerShape, phase: Float): Modifier {
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(28.dp)
+    val tint = colors.surface
+    val edge = Color.White
+    return this
+        .clip(shape)
+        .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.6f), tint.copy(alpha = 0.32f))))
+        .drawBehind {
+            val w = size.width
+            val x = -w * 0.4f + w * 1.8f * phase
+            drawRect(
+                Brush.linearGradient(
+                    listOf(Color.Transparent, edge.copy(alpha = 0.28f), Color.Transparent),
+                    start = Offset(x, 0f),
+                    end = Offset(x + w * 0.5f, size.height),
+                ),
+            )
+        }
+        .border(BorderStroke(1.2.dp, Brush.linearGradient(listOf(edge.copy(alpha = 0.95f), edge.copy(alpha = 0.15f), edge.copy(alpha = 0.6f)))), shape)
+}
+
+@Composable
+private fun AboutCard(phase: Float, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
         modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface.copy(alpha = 0.82f))
-            .border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.4f)), shape)
+            .glass(RoundedCornerShape(28.dp), phase)
             .padding(22.dp),
     ) { content() }
 }
 
 @Composable
-private fun Promise(emoji: String, label: String, modifier: Modifier = Modifier) {
+private fun Promise(emoji: String, label: String, phase: Float, modifier: Modifier = Modifier) {
     val colors = MaterialTheme.colorScheme
-    val shape = RoundedCornerShape(22.dp)
     Column(
         modifier
-            .clip(shape)
-            .background(colors.surface.copy(alpha = 0.82f))
-            .border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.4f)), shape)
+            .glass(RoundedCornerShape(22.dp), phase)
             .padding(vertical = 16.dp, horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

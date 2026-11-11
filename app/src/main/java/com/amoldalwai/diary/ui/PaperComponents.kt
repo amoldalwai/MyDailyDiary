@@ -44,32 +44,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.math.abs
 
-val tapeColors = listOf(
-    Color(0xFFF4B9A5),
-    Color(0xFFB5D3BC),
-    Color(0xFFCFC0EC),
-    Color(0xFFF7DE8E),
-    Color(0xFFAFCFEF),
-)
-
-/** Washi-tape strip used to "stick" cards and photos onto the page. */
-@Composable
-fun WashiTape(color: Color, modifier: Modifier = Modifier, rotation: Float = -3f) {
-    Box(
-        modifier
-            .graphicsLayer { rotationZ = rotation }
-            .size(width = 58.dp, height = 17.dp)
-            .drawBehind {
-                drawRoundRect(color.copy(alpha = 0.82f), cornerRadius = CornerRadius(2.dp.toPx()))
-                var x = -size.height
-                while (x < size.width) {
-                    drawLine(Color.White.copy(alpha = 0.32f), Offset(x, size.height), Offset(x + size.height, 0f), strokeWidth = 2.5.dp.toPx())
-                    x += 9.dp.toPx()
-                }
-            },
-    )
-}
-
 /** Notebook margin line and punched binder holes. */
 @Composable
 fun PaperDecor(bg: PageBackground) {

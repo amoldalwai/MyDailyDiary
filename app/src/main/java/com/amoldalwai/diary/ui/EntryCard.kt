@@ -206,7 +206,7 @@ private fun PhotoFan(images: List<String>, imageFile: (String) -> File, badgeCol
     val shown = images.take(3)
     Box(Modifier.fillMaxWidth().height(76.dp)) {
         shown.indices.reversed().forEach { i ->
-            Polaroid(
+            Stamp(
                 imageFile(shown[i]),
                 Modifier.width(58.dp).offset(x = (i * 30).dp, y = fanDrops[i]),
                 rotation = fanTilts[i],

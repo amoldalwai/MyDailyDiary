@@ -21,11 +21,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.amoldalwai.diary.DiaryViewModel
 import com.amoldalwai.diary.Screen
+import com.amoldalwai.diary.data.BookStatus
 import com.amoldalwai.diary.isHub
 
 @Composable
 fun DiaryApp(vm: DiaryViewModel) {
     BackHandler(enabled = !vm.locked && vm.screen !is Screen.Home && vm.screen !is Screen.Editor) { vm.goBack() }
+
+    val habitUi = HabitUi(vm.habits, vm.settings.habitSound, vm::habitsDone, vm::loadHabitDay, vm::toggleHabit)
+    val booksUi = BooksUi(
+        enabled = vm.settings.booksEnabled,
+        reading = vm.books.filter { it.status == BookStatus.Reading },
+        pageOn = vm::bookPage,
+        loadLogs = vm::loadBookDay,
+        setPage = vm::setBookPage,
+        addBook = vm::addBook,
+        cover = vm::bookCover,
+    )
 
     Box(Modifier.fillMaxSize()) {
         AnimatedContent(
@@ -52,6 +64,60 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onOpenCalendar = { vm.openHub(Screen.Calendar) },
                     onOpenInsights = { vm.openHub(Screen.Insights) },
                     onOpenSettings = { vm.openHub(Screen.Settings) },
+                    onOpenAlbum = { vm.openHub(Screen.Album) },
+                    habitUi = habitUi,
+                    booksEnabled = vm.settings.booksEnabled,
+                    onOpenBooks = { vm.openHub(Screen.Books) },
+                    gamesEnabled = vm.settings.gamesEnabled,
+                    onOpenGames = { vm.openHub(Screen.Games) },
+                    watchEnabled = vm.settings.watchEnabled,
+                    onOpenWatch = { vm.openHub(Screen.Watch) },
+                )
+
+                Screen.Watch -> WatchScreen(
+                    items = vm.watchItems,
+                    cover = vm::watchCover,
+                    onAdd = { result, kind, status, season, episode -> vm.addWatch(result, kind, status, season, episode) {} },
+                    onUpdate = vm::updateWatch,
+                    onDelete = vm::deleteWatch,
+                    onBack = vm::goBack,
+                )
+
+                Screen.Games -> GamesScreen(
+                    games = vm.games,
+                    cover = vm::gameCover,
+                    onAddGame = { result, platform, status -> vm.addGame(result, platform, status) {} },
+                    onUpdate = vm::updateGame,
+                    onDelete = vm::deleteGame,
+                    onBack = vm::goBack,
+                )
+
+                Screen.Habits -> HabitsScreen(
+                    stats = vm.habitStats,
+                    onAdd = vm::addHabit,
+                    onUpdate = vm::updateHabit,
+                    onDelete = vm::deleteHabit,
+                    onBack = vm::goBack,
+                )
+
+                Screen.Books -> BooksScreen(
+                    books = vm.books,
+                    cover = vm::bookCover,
+                    onAddBook = { result, status, total, current -> vm.addBook(result, status, total, current) {} },
+                    onUpdate = vm::updateBook,
+                    onDelete = vm::deleteBook,
+                    onBack = vm::goBack,
+                )
+
+                Screen.Album -> AlbumScreen(
+                    photos = vm.albumPhotos,
+                    total = vm.albumTotal,
+                    loading = vm.albumLoading,
+                    hasMore = vm.albumHasMore,
+                    imageFile = vm::imageFile,
+                    onLoadMore = vm::loadMoreAlbum,
+                    onOpenEntry = { vm.openDetail(it, from = Screen.Album) },
+                    onBack = vm::goBack,
                 )
 
                 Screen.Calendar -> CalendarScreen(
@@ -87,7 +153,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onOpenEntry = { vm.openDetail(it.id, from = Screen.Search) },
                 )
 
-                Screen.Insights -> InsightsScreen(stats = vm.insights, onBack = vm::goBack)
+                Screen.Insights -> InsightsScreen(stats = vm.insights, habitStats = vm.habitStats, onBack = vm::goBack)
 
                 Screen.Settings -> SettingsScreen(
                     settings = vm.settings,
@@ -100,6 +166,12 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onConsentResult = vm::onConsentResult,
                     onSyncNow = vm::syncNow,
                     onDisconnectDrive = vm::disconnectDrive,
+                    storage = vm.storage,
+                    habitCount = vm.habits.size,
+                    onOpenHabits = { vm.openHub(Screen.Habits, from = Screen.Settings) },
+                    onOpenBooks = { vm.openHub(Screen.Books, from = Screen.Settings) },
+                    onOpenGames = { vm.openHub(Screen.Games, from = Screen.Settings) },
+                    onOpenWatch = { vm.openHub(Screen.Watch, from = Screen.Settings) },
                 )
 
                 is Screen.Detail -> PageTurn {
@@ -112,6 +184,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                             onEdit = { vm.openEditor(entry) },
                             onDelete = { vm.delete(entry) },
                             onFlip = vm::flipDetail,
+                            habitUi = habitUi,
+                            booksUi = booksUi,
                         )
                     } else {
                         Box(Modifier.fillMaxSize())
@@ -124,6 +198,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                     imageFile = vm::imageFile,
                     onPickImages = vm::addImages,
                     onAddDrawing = vm::addDrawing,
+                    habitUi = habitUi,
+                    booksUi = booksUi,
                     onSave = { vm.save(screen.entry, it, screen.isNew) },
                     onDiscard = { vm.discard(screen.entry, screen.isNew) },
                 )

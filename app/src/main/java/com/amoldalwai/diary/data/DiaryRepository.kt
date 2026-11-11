@@ -35,6 +35,14 @@ data class InsightStats(
     val tags: List<Pair<String, Int>>,
 )
 
+data class PhotoRef(val entryId: String, val name: String, val dateEpochDay: Long)
+
+data class PhotoPage(val photos: List<PhotoRef>, val next: PageCursor?, val hasMore: Boolean)
+
+data class StorageUsage(val dataBytes: Long, val photoBytes: Long, val photoCount: Int, val entryCount: Int) {
+    val totalBytes: Long get() = dataBytes + photoBytes
+}
+
 /**
  * Entries live in SQLite. Lists only read a short body preview and use indexed keyset pagination;
  * counts and charts are answered by SQL aggregates, so the full text is read only when one entry is opened.
@@ -187,6 +195,45 @@ class DiaryRepository(context: Context) {
             moods = moods,
             weekly = weekly.toList(),
             tags = tagCountsBlocking(10),
+        )
+    }
+
+    /** Photos of the next [limit] entries that have any, newest first, for the stamp album. */
+    suspend fun photoPage(cursor: PageCursor?, limit: Int): PhotoPage = withContext(Dispatchers.IO) {
+        val where = if (cursor == null) {
+            "image_count > 0"
+        } else {
+            "image_count > 0 AND (date_epoch < ${cursor.dateEpochDay} OR (date_epoch = ${cursor.dateEpochDay} AND created_at < ${cursor.createdAt}))"
+        }
+        val photos = mutableListOf<PhotoRef>()
+        var next: PageCursor? = null
+        var rows = 0
+        db.rawQuery(
+            "SELECT id, date_epoch, created_at, images FROM entries WHERE $where ORDER BY date_epoch DESC, created_at DESC LIMIT $limit",
+            null,
+        ).use {
+            while (it.moveToNext()) {
+                rows++
+                next = PageCursor(it.getLong(1), it.getLong(2))
+                parseList(it.getString(3)).forEach { name -> photos += PhotoRef(it.getString(0), name, it.getLong(1)) }
+            }
+        }
+        PhotoPage(photos, next, hasMore = rows >= limit)
+    }
+
+    suspend fun photoTotal(): Int = withContext(Dispatchers.IO) {
+        scalar("SELECT COALESCE(SUM(image_count), 0) FROM entries")
+    }
+
+    suspend fun storageUsage(): StorageUsage = withContext(Dispatchers.IO) {
+        val dbFile = appContext.getDatabasePath("diary.db")
+        val dataBytes = listOf(dbFile, File(dbFile.path + "-wal"), File(dbFile.path + "-shm")).filter { it.exists() }.sumOf { it.length() }
+        val photos = imagesDir.listFiles().orEmpty()
+        StorageUsage(
+            dataBytes = dataBytes,
+            photoBytes = photos.sumOf { it.length() },
+            photoCount = photos.size,
+            entryCount = scalar("SELECT COUNT(*) FROM entries"),
         )
     }
 

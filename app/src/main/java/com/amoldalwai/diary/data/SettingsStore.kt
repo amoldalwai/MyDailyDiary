@@ -38,6 +38,37 @@ class SettingsStore(context: Context) {
 
     val driveConnected: Boolean get() = driveEmail != null
 
+    var booksEnabled by mutableStateOf(prefs.getBoolean("booksEnabled", true))
+        private set
+    var habitSound by mutableStateOf(prefs.getBoolean("habitSound", true))
+        private set
+
+    fun updateBooksEnabled(enabled: Boolean) {
+        booksEnabled = enabled
+        prefs.edit().putBoolean("booksEnabled", enabled).apply()
+    }
+
+    var gamesEnabled by mutableStateOf(prefs.getBoolean("gamesEnabled", true))
+        private set
+
+    var watchEnabled by mutableStateOf(prefs.getBoolean("watchEnabled", true))
+        private set
+
+    fun updateWatchEnabled(enabled: Boolean) {
+        watchEnabled = enabled
+        prefs.edit().putBoolean("watchEnabled", enabled).apply()
+    }
+
+    fun updateGamesEnabled(enabled: Boolean) {
+        gamesEnabled = enabled
+        prefs.edit().putBoolean("gamesEnabled", enabled).apply()
+    }
+
+    fun updateHabitSound(enabled: Boolean) {
+        habitSound = enabled
+        prefs.edit().putBoolean("habitSound", enabled).apply()
+    }
+
     fun updateDrive(email: String?) {
         driveEmail = email
         prefs.edit().apply { if (email == null) remove("driveEmail").remove("lastSyncAt") else putString("driveEmail", email) }.apply()

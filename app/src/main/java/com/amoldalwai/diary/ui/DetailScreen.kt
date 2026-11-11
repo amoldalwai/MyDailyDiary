@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -87,6 +88,8 @@ fun DetailScreen(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onFlip: (newer: Boolean, onNone: () -> Unit) -> Unit,
+    habitUi: HabitUi,
+    booksUi: BooksUi,
 ) {
     val context = LocalContext.current
     AnimatedContent(
@@ -108,6 +111,8 @@ fun DetailScreen(
             onBack = onBack,
             onEdit = onEdit,
             onDelete = onDelete,
+            habitUi = habitUi,
+            booksUi = booksUi,
             onSwipe = { newer ->
                 onFlip(newer) {
                     Toast.makeText(context, if (newer) "That's your latest entry" else "That's your first entry", Toast.LENGTH_SHORT).show()
@@ -125,6 +130,8 @@ private fun DetailPage(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    habitUi: HabitUi,
+    booksUi: BooksUi,
     onSwipe: (newer: Boolean) -> Unit,
 ) {
     val bg = PageStyles.background(entry.style.backgroundId)
@@ -132,6 +139,7 @@ private fun DetailPage(
     val scale = entry.style.fontScale
     var confirmDelete by remember { mutableStateOf(false) }
     var viewing by remember { mutableStateOf<String?>(null) }
+    var showBookSearch by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val startPad by animateDpAsState(if (entry.style.margin) 50.dp else 24.dp, label = "pageStart")
@@ -251,18 +259,38 @@ private fun DetailPage(
                     }
                 }
 
+                if (habitUi.habits.isNotEmpty()) {
+                    LaunchedEffect(entry.dateEpochDay) { habitUi.load(entry.date) }
+                    Spacer(Modifier.height(28.dp))
+                    Text("HABITS", color = bg.inkSoft, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    HabitChips(
+                        habits = habitUi.habits,
+                        doneIds = habitUi.done(entry.date),
+                        ink = bg.ink,
+                        accent = bg.ink,
+                        onAccent = bg.onInk,
+                        sound = habitUi.sound,
+                        onToggle = { habitUi.toggle(it, entry.date) },
+                    )
+                }
+                if (booksUi.enabled) {
+                    Spacer(Modifier.height(28.dp))
+                    Text("BOOKS", color = bg.inkSoft, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    BooksPanel(booksUi, entry.date, bg.ink) { showBookSearch = true }
+                }
+
                 if (entry.images.isNotEmpty()) {
                     Spacer(Modifier.height(32.dp))
                     Text("MEMORIES", color = bg.inkSoft, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(18.dp))
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(28.dp)) {
                         entry.images.forEachIndexed { index, name ->
-                            Polaroid(
+                            Stamp(
                                 imageFile(name),
-                                Modifier.fillMaxWidth(0.82f).staggeredEntrance(index + 3),
+                                Modifier.fillMaxWidth(0.8f).staggeredEntrance(index + 3),
                                 rotation = detailTilts[index % detailTilts.size],
-                                aspect = 0.9f,
-                                tape = tapeColors[index % tapeColors.size],
                                 onClick = { viewing = name },
                             )
                         }
@@ -271,6 +299,13 @@ private fun DetailPage(
                 Spacer(Modifier.height(40.dp))
             }
         }
+    }
+
+    if (showBookSearch) {
+        BookSearchSheet(
+            onDismiss = { showBookSearch = false },
+            onAdd = { result, status, total, current -> booksUi.addBook(result, status, total, current) {} },
+        )
     }
 
     if (confirmDelete) {

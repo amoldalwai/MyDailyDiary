@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.amoldalwai.diary.util.RichText
 
-class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 3) {
+class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 7) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -46,6 +46,125 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         )
         db.execSQL("CREATE INDEX idx_tags_tag ON tags(tag)")
         createTombstones(db)
+        createHabitsAndBooks(db)
+        createGames(db)
+        addReviewColumns(db)
+        createWatch(db)
+    }
+
+    private fun createWatch(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE watch_items (
+                id TEXT PRIMARY KEY,
+                kind TEXT NOT NULL,
+                title TEXT NOT NULL,
+                year INTEGER,
+                info TEXT NOT NULL,
+                cover TEXT,
+                status TEXT NOT NULL,
+                season INTEGER NOT NULL,
+                episode INTEGER NOT NULL,
+                started_at INTEGER,
+                finished_at INTEGER,
+                rating INTEGER,
+                review TEXT NOT NULL,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent(),
+        )
+    }
+
+    /** Ratings (1-10) and short reviews for books and games; safe to run on any schema version. */
+    private fun addReviewColumns(db: SQLiteDatabase) {
+        for (table in listOf("books", "games")) {
+            val existing = buildSet {
+                db.rawQuery("PRAGMA table_info($table)", null).use { while (it.moveToNext()) add(it.getString(1)) }
+            }
+            if ("rating" !in existing) db.execSQL("ALTER TABLE $table ADD COLUMN rating INTEGER")
+            if ("review" !in existing) db.execSQL("ALTER TABLE $table ADD COLUMN review TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private fun createGames(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE games (
+                id TEXT PRIMARY KEY,
+                steam_app_id INTEGER,
+                title TEXT NOT NULL,
+                developer TEXT NOT NULL,
+                year INTEGER,
+                platform TEXT NOT NULL,
+                cover TEXT,
+                status TEXT NOT NULL,
+                started_at INTEGER,
+                completed_at INTEGER,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent(),
+        )
+    }
+
+    private fun createHabitsAndBooks(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE habits (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                emoji TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE habit_checks (
+                habit_id TEXT NOT NULL,
+                date_epoch INTEGER NOT NULL,
+                done INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (habit_id, date_epoch)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX idx_checks_date ON habit_checks(date_epoch)")
+        db.execSQL(
+            """
+            CREATE TABLE books (
+                id TEXT PRIMARY KEY,
+                ol_key TEXT,
+                title TEXT NOT NULL,
+                authors TEXT NOT NULL,
+                year INTEGER,
+                cover TEXT,
+                total_pages INTEGER,
+                current_page INTEGER NOT NULL,
+                status TEXT NOT NULL,
+                started_at INTEGER,
+                finished_at INTEGER,
+                updated_at INTEGER NOT NULL,
+                deleted INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent(),
+        )
+        db.execSQL(
+            """
+            CREATE TABLE book_logs (
+                book_id TEXT NOT NULL,
+                date_epoch INTEGER NOT NULL,
+                page INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (book_id, date_epoch)
+            )
+            """.trimIndent(),
+        )
+        db.execSQL("CREATE INDEX idx_logs_date ON book_logs(date_epoch)")
     }
 
     private fun createTombstones(db: SQLiteDatabase) {
@@ -63,6 +182,10 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
             convertMarkerFormatting(db)
         }
         if (oldVersion < 3) createTombstones(db)
+        if (oldVersion < 4) createHabitsAndBooks(db)
+        if (oldVersion < 5) createGames(db)
+        if (oldVersion < 6) addReviewColumns(db)
+        if (oldVersion < 7) createWatch(db)
     }
 
     /** Version 1 stored bold/italic as `**`/`*` markers inside the body. */

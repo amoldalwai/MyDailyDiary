@@ -17,6 +17,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -92,6 +94,14 @@ fun HomeScreen(
     onOpenCalendar: () -> Unit,
     onOpenInsights: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenAlbum: () -> Unit,
+    habitUi: HabitUi,
+    booksEnabled: Boolean,
+    onOpenBooks: () -> Unit,
+    gamesEnabled: Boolean,
+    onOpenGames: () -> Unit,
+    watchEnabled: Boolean,
+    onOpenWatch: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
@@ -139,6 +149,9 @@ fun HomeScreen(
                 }
             }
             item(key = "week") { WeekStrip(today, weekDays, onDayClick, Modifier.staggeredEntrance(2)) }
+            if (habitUi.habits.isNotEmpty()) {
+                item(key = "habits") { TodayHabitsCard(habitUi, today, Modifier.staggeredEntrance(3)) }
+            }
             if (onThisDay.isNotEmpty()) {
                 item(key = "onthisday") { OnThisDayCard(onThisDay, onOpenEntry, Modifier.staggeredEntrance(3)) }
             }
@@ -156,6 +169,7 @@ fun HomeScreen(
                             fontSize = 13.sp,
                             color = colors.onSurfaceVariant,
                         )
+                        HomeShortcuts(booksEnabled, gamesEnabled, watchEnabled, onOpenAlbum, onOpenBooks, onOpenGames, onOpenWatch)
                     }
                     Ribbon(Modifier.padding(end = 18.dp))
                 }
@@ -382,6 +396,80 @@ private fun EmptyState() {
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun HomeShortcuts(
+    booksEnabled: Boolean,
+    gamesEnabled: Boolean,
+    watchEnabled: Boolean,
+    onOpenAlbum: () -> Unit,
+    onOpenBooks: () -> Unit,
+    onOpenGames: () -> Unit,
+    onOpenWatch: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    @Composable
+    fun Chip(label: String, onClick: () -> Unit) {
+        Text(
+            label,
+            modifier = Modifier
+                .bouncyClick(onClick)
+                .clip(CircleShape)
+                .background(colors.primaryContainer)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            color = colors.onPrimaryContainer,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+        )
+    }
+    FlowRow(
+        Modifier.padding(top = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Chip("📮 Stamp album", onOpenAlbum)
+        if (booksEnabled) Chip("📚 Books", onOpenBooks)
+        if (gamesEnabled) Chip("🎮 Games", onOpenGames)
+        if (watchEnabled) Chip("🎬 Movies & Series", onOpenWatch)
+    }
+}
+
+@Composable
+private fun TodayHabitsCard(habitUi: HabitUi, today: LocalDate, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    LaunchedEffect(today) { habitUi.load(today) }
+    val done = habitUi.done(today)
+    val doneCount = habitUi.habits.count { it.id in done }
+    val shape = RoundedCornerShape(26.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(colors.surface.copy(alpha = 0.78f))
+            .border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.4f)), shape)
+            .padding(16.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Today's habits", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = colors.onSurface, modifier = Modifier.weight(1f))
+            Text(
+                if (doneCount == habitUi.habits.size) "All done 🎉" else "$doneCount/${habitUi.habits.size}",
+                fontSize = 13.sp,
+                color = colors.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        HabitChips(
+            habits = habitUi.habits,
+            doneIds = done,
+            ink = colors.onSurface,
+            accent = colors.primary,
+            onAccent = colors.onPrimary,
+            sound = habitUi.sound,
+            onToggle = { habitUi.toggle(it, today) },
         )
     }
 }

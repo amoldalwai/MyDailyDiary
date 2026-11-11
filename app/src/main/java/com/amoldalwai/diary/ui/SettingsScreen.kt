@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -13,11 +14,14 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +67,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.amoldalwai.diary.reminder.ReminderScheduler
 import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.SettingsStore
+import com.amoldalwai.diary.data.StorageUsage
 import com.amoldalwai.diary.data.ThemeMode
 import com.amoldalwai.diary.sync.SyncState
 import com.amoldalwai.diary.util.PdfExporter
@@ -88,6 +94,12 @@ fun SettingsScreen(
     onConsentResult: (Intent?) -> Unit,
     onSyncNow: () -> Unit,
     onDisconnectDrive: () -> Unit,
+    storage: StorageUsage?,
+    habitCount: Int,
+    onOpenHabits: () -> Unit,
+    onOpenBooks: () -> Unit,
+    onOpenGames: () -> Unit,
+    onOpenWatch: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
@@ -134,6 +146,40 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Spacer(Modifier.height(4.dp))
+
+                SettingsCard("Personalize", Modifier.staggeredEntrance(0)) {
+                    NavRow(
+                        title = "Daily habits",
+                        subtitle = if (habitCount == 0) "Track things like gym or 10k steps" else "$habitCount ${if (habitCount == 1) "habit" else "habits"} on your journal pages",
+                        onClick = onOpenHabits,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow("Habit sounds", "Play a chime when you tick a habit", settings.habitSound) { settings.updateHabitSound(it) }
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow("Books", "Track what you're reading on your journal pages", settings.booksEnabled) { settings.updateBooksEnabled(it) }
+                    AnimatedVisibility(settings.booksEnabled) {
+                        Column {
+                            Spacer(Modifier.height(12.dp))
+                            NavRow("Book library", "Reading, finished and want-to-read shelves", onOpenBooks)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow("Games", "Keep a shelf of games you play and finish", settings.gamesEnabled) { settings.updateGamesEnabled(it) }
+                    AnimatedVisibility(settings.gamesEnabled) {
+                        Column {
+                            Spacer(Modifier.height(12.dp))
+                            NavRow("Game library", "Playing, completed and backlog shelves", onOpenGames)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow("Movies & Series", "Keep track of what you watch", settings.watchEnabled) { settings.updateWatchEnabled(it) }
+                    AnimatedVisibility(settings.watchEnabled) {
+                        Column {
+                            Spacer(Modifier.height(12.dp))
+                            NavRow("Movies & Series library", "Watching, watched and watchlist shelves", onOpenWatch)
+                        }
+                    }
+                }
 
                 SettingsCard("Appearance", Modifier.staggeredEntrance(0)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -252,7 +298,42 @@ fun SettingsScreen(
                     }
                 }
 
-                SettingsCard("Your data", Modifier.staggeredEntrance(4)) {
+                SettingsCard("Storage", Modifier.staggeredEntrance(4)) {
+                    if (storage == null) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        fun size(bytes: Long) = Formatter.formatShortFileSize(context, bytes)
+                        Text(
+                            size(storage.totalBytes),
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.onSurface,
+                        )
+                        Text("used by Diary on this phone", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                        Spacer(Modifier.height(14.dp))
+                        val photoShare = if (storage.totalBytes == 0L) 0f else storage.photoBytes.toFloat() / storage.totalBytes
+                        Row(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(colors.surfaceVariant)) {
+                            if (photoShare > 0f) {
+                                Box(Modifier.weight(photoShare.coerceAtLeast(0.02f)).fillMaxHeight().background(colors.primary))
+                            }
+                            if (photoShare < 1f) {
+                                Box(Modifier.weight((1f - photoShare).coerceAtLeast(0.02f)).fillMaxHeight().background(colors.tertiary))
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        StorageLine(colors.primary, "Photos", "${storage.photoCount} ${if (storage.photoCount == 1) "photo" else "photos"}", size(storage.photoBytes))
+                        Spacer(Modifier.height(8.dp))
+                        StorageLine(colors.tertiary, "Entries and text", "${storage.entryCount} ${if (storage.entryCount == 1) "entry" else "entries"}", size(storage.dataBytes))
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Photos are saved at a reduced size to keep this small. Turning on Google Drive sync stores a copy in your own Drive, which counts toward your Google storage.",
+                            fontSize = 12.sp,
+                            color = colors.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                SettingsCard("Your data", Modifier.staggeredEntrance(5)) {
                     Text(
                         "Everything is stored privately on this device.",
                         color = colors.onSurfaceVariant,
@@ -365,6 +446,39 @@ private fun SettingsCard(title: String, modifier: Modifier = Modifier, content: 
         )
         Spacer(Modifier.height(12.dp))
         content()
+    }
+}
+
+@Composable
+private fun NavRow(title: String, subtitle: String, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Medium, color = colors.onSurface)
+            Text(subtitle, fontSize = 13.sp, color = colors.onSurfaceVariant)
+        }
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = colors.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun StorageLine(color: androidx.compose.ui.graphics.Color, title: String, detail: String, size: String) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = colors.onSurface, fontWeight = FontWeight.Medium)
+            Text(detail, fontSize = 12.sp, color = colors.onSurfaceVariant)
+        }
+        Text(size, color = colors.onSurface, fontWeight = FontWeight.SemiBold)
     }
 }
 

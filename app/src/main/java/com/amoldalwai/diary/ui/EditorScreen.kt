@@ -77,6 +77,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -131,6 +132,8 @@ fun EditorScreen(
     imageFile: (String) -> File,
     onPickImages: (List<Uri>, (List<String>) -> Unit) -> Unit,
     onAddDrawing: (Bitmap, (String) -> Unit) -> Unit,
+    habitUi: HabitUi,
+    booksUi: BooksUi,
     onSave: (DiaryEntry) -> Unit,
     onDiscard: () -> Unit,
 ) {
@@ -145,6 +148,7 @@ fun EditorScreen(
     var showDrawing by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
+    var showBookSearch by remember { mutableStateOf(false) }
 
     val bg = PageStyles.background(entry.style.backgroundId)
     val font = PageStyles.font(entry.style.fontId)
@@ -302,6 +306,28 @@ fun EditorScreen(
                 }
                 Spacer(Modifier.height(16.dp))
 
+                if (habitUi.habits.isNotEmpty()) {
+                    LaunchedEffect(entry.dateEpochDay) { habitUi.load(entry.date) }
+                    SectionLabel("Habits", bg.inkSoft)
+                    Spacer(Modifier.height(8.dp))
+                    HabitChips(
+                        habits = habitUi.habits,
+                        doneIds = habitUi.done(entry.date),
+                        ink = bg.ink,
+                        accent = bg.ink,
+                        onAccent = bg.onInk,
+                        sound = habitUi.sound,
+                        onToggle = { habitUi.toggle(it, entry.date) },
+                    )
+                    Spacer(Modifier.height(18.dp))
+                }
+                if (booksUi.enabled) {
+                    SectionLabel("Books", bg.inkSoft)
+                    Spacer(Modifier.height(8.dp))
+                    BooksPanel(booksUi, entry.date, bg.ink) { showBookSearch = true }
+                    Spacer(Modifier.height(18.dp))
+                }
+
                 BasicTextField(
                     value = entry.title,
                     onValueChange = { entry = entry.copy(title = it) },
@@ -436,11 +462,10 @@ fun EditorScreen(
                     entry.images.forEachIndexed { index, name ->
                         key(name) {
                             Box(Modifier.popIn()) {
-                                Polaroid(
+                                Stamp(
                                     imageFile(name),
                                     Modifier.width(128.dp),
                                     rotation = polaroidTilts[index % polaroidTilts.size],
-                                    aspect = 0.85f,
                                 )
                                 Box(
                                     Modifier
@@ -531,6 +556,13 @@ fun EditorScreen(
                 }
             }
         }
+    }
+
+    if (showBookSearch) {
+        BookSearchSheet(
+            onDismiss = { showBookSearch = false },
+            onAdd = { result, status, total, current -> booksUi.addBook(result, status, total, current) {} },
+        )
     }
 
     if (showDrawing) {

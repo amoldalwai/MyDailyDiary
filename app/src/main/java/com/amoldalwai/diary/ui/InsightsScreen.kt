@@ -43,12 +43,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amoldalwai.diary.data.InsightStats
+import com.amoldalwai.diary.data.HabitStat
 import kotlin.math.max
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun InsightsScreen(stats: InsightStats?, onBack: () -> Unit) {
+fun InsightsScreen(stats: InsightStats?, habitStats: List<HabitStat>, onBack: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
     val progress = remember { Animatable(0f) }
@@ -120,6 +121,27 @@ fun InsightsScreen(stats: InsightStats?, onBack: () -> Unit) {
                                         }
                                         Spacer(Modifier.width(10.dp))
                                         Text("$count", fontWeight = FontWeight.SemiBold, color = colors.onSurface, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if (habitStats.isNotEmpty()) {
+                        InsightCard("Habits · last 30 days", Modifier.staggeredEntrance(3)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                habitStats.forEach { stat ->
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(stat.habit.emoji, fontSize = 20.sp)
+                                        Spacer(Modifier.width(8.dp))
+                                        Column(Modifier.weight(1f)) {
+                                            Row {
+                                                Text(stat.habit.name, color = colors.onSurface, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                                Text("${stat.doneLast30}/30", color = colors.onSurfaceVariant, fontSize = 13.sp)
+                                            }
+                                            Spacer(Modifier.height(4.dp))
+                                            ProgressBar(stat.doneLast30 / 30f * progress.value, colors.surfaceVariant, colors.primary, Modifier.fillMaxWidth())
+                                        }
                                     }
                                 }
                             }

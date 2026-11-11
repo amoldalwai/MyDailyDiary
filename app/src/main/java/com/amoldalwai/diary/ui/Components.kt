@@ -42,20 +42,31 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import coil.compose.AsyncImage
 import com.amoldalwai.diary.R
 import kotlinx.coroutines.delay
 import java.io.File
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 /** Scales down slightly while pressed, with a springy release. */
 @Composable
@@ -152,26 +163,50 @@ fun SystemBarsStyle(darkIcons: Boolean) {
     }
 }
 
+/** Postage-stamp outline: a rectangle with semicircular perforation notches along every edge. */
+private class StampShape(private val radius: Float, private val spacing: Float) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        val base = Path().apply { addRect(Rect(0f, 0f, size.width, size.height)) }
+        val holes = Path()
+
+        fun notches(length: Float, place: (Float) -> Unit) {
+            val count = max(1, (length / spacing).roundToInt())
+            val step = length / count
+            for (i in 0 until count) place((i + 0.5f) * step)
+        }
+        notches(size.width) { x ->
+            holes.addOval(Rect(Offset(x, 0f), radius))
+            holes.addOval(Rect(Offset(x, size.height), radius))
+        }
+        notches(size.height) { y ->
+            holes.addOval(Rect(Offset(0f, y), radius))
+            holes.addOval(Rect(Offset(size.width, y), radius))
+        }
+        return Outline.Generic(Path.combine(PathOperation.Difference, base, holes))
+    }
+}
+
+/** A photo as a postage stamp: the perforation notches cut straight into the picture, no border. */
 @Composable
-fun Polaroid(
+fun Stamp(
     file: File,
     modifier: Modifier = Modifier,
     rotation: Float = 0f,
-    aspect: Float = 1f,
+    aspect: Float = 0.8f,
     compact: Boolean = false,
-    tape: Color? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    val shape = RoundedCornerShape(4.dp)
-    val side = if (compact) 4.dp else 7.dp
-    val bottom = if (compact) 12.dp else 22.dp
+    val density = LocalDensity.current
+    val shape = remember(compact, density) {
+        with(density) { StampShape(if (compact) 2.2.dp.toPx() else 3.4.dp.toPx(), if (compact) 7.5.dp.toPx() else 11.dp.toPx()) }
+    }
     Box(
         modifier
             .rotate(rotation)
             .then(if (onClick != null) Modifier.bouncyClick(onClick) else Modifier)
-            .shadow(if (compact) 4.dp else 10.dp, shape, ambientColor = Color.Black.copy(0.3f), spotColor = Color.Black.copy(0.3f))
-            .background(Color(0xFFFFFEFB), shape)
-            .padding(start = side, top = side, end = side, bottom = bottom),
+            .shadow(if (compact) 3.dp else 8.dp, shape, ambientColor = Color.Black.copy(0.3f), spotColor = Color.Black.copy(0.3f))
+            .clip(shape)
+            .background(Color(0xFFE9E2D8)),
     ) {
         AsyncImage(
             model = file,
@@ -179,12 +214,8 @@ fun Polaroid(
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(aspect)
-                .clip(RoundedCornerShape(2.dp)),
+                .aspectRatio(aspect),
         )
-        if (tape != null) {
-            WashiTape(tape, Modifier.align(Alignment.TopCenter).offset(y = (-16).dp), rotation = -4f)
-        }
     }
 }
 

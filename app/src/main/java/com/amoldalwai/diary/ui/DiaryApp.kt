@@ -18,26 +18,48 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import com.amoldalwai.diary.DiaryViewModel
 import com.amoldalwai.diary.Screen
 import com.amoldalwai.diary.data.BookStatus
+import com.amoldalwai.diary.data.GameStatus
+import com.amoldalwai.diary.data.WatchStatus
+import java.io.File
+import java.time.Instant
+import java.time.ZoneId
 import com.amoldalwai.diary.isHub
+import com.amoldalwai.diary.isTab
 
 @Composable
 fun DiaryApp(vm: DiaryViewModel) {
     BackHandler(enabled = !vm.locked && vm.screen !is Screen.Home && vm.screen !is Screen.Editor) { vm.goBack() }
 
     val habitUi = HabitUi(vm.habits, vm.settings.habitSound, vm::habitsDone, vm::loadHabitDay, vm::toggleHabit)
-    val booksUi = BooksUi(
-        enabled = vm.settings.booksEnabled,
-        reading = vm.books.filter { it.status == BookStatus.Reading },
+    val mediaUi = MediaUi(
+        booksEnabled = vm.settings.booksEnabled,
+        gamesEnabled = vm.settings.gamesEnabled,
+        watchEnabled = vm.settings.watchEnabled,
+        books = vm.books,
+        games = vm.games,
+        watch = vm.watchItems,
+        bookCover = vm::bookCover,
+        gameCover = vm::gameCover,
+        watchCover = vm::watchCover,
         pageOn = vm::bookPage,
         loadLogs = vm::loadBookDay,
         setPage = vm::setBookPage,
         addBook = vm::addBook,
-        cover = vm::bookCover,
+        addGame = vm::addGame,
+        addWatch = vm::addWatch,
+        setBookStatus = vm::setBookStatus,
+        setGameStatus = vm::setGameStatus,
+        setWatchStatus = vm::setWatchStatus,
     )
+
+    val completions = remember(vm.books, vm.games, vm.watchItems) { completionPosters(vm) }
+    val profilePhoto = vm.profilePhotoFile()
 
     Box(Modifier.fillMaxSize()) {
         AnimatedContent(
@@ -48,30 +70,99 @@ fun DiaryApp(vm: DiaryViewModel) {
         ) { screen ->
             when (screen) {
                 Screen.Home -> HomeScreen(
+                    recent = vm.homeEntries.take(3),
+                    loading = vm.homeLoading,
+                    onThisDay = vm.onThisDay,
+                    onOpenEntry = { vm.openDetail(it.id) },
+                    onSeeAll = { vm.openTab(Screen.Journal) },
+                    onMood = { vm.openQuickAdd(it) },
+                    habitUi = habitUi,
+                    profileEmoji = vm.settings.profileEmoji,
+                    profilePhoto = profilePhoto,
+                    heroImage = vm.heroFile,
+                    heroLoading = vm.heroLoading,
+                    onRefreshHero = vm::refreshHeroNow,
+                    imageFile = vm::imageFile,
+                    level = vm.level,
+                    onProfile = { vm.openHub(Screen.Profile) },
+                )
+
+                Screen.Journal -> JournalScreen(
                     entries = vm.homeEntries,
                     loading = vm.homeLoading,
                     loadingMore = vm.homeLoadingMore,
                     hasMore = vm.homeHasMore,
-                    stats = vm.homeStats,
-                    weekDays = vm.weekDays,
-                    onThisDay = vm.onThisDay,
                     imageFile = vm::imageFile,
-                    onNewEntry = { vm.openNew() },
                     onOpenEntry = { vm.openDetail(it.id) },
-                    onDayClick = vm::openDay,
                     onLoadMore = vm::loadMoreHome,
-                    onOpenSearch = { vm.openHub(Screen.Search) },
-                    onOpenCalendar = { vm.openHub(Screen.Calendar) },
-                    onOpenInsights = { vm.openHub(Screen.Insights) },
-                    onOpenSettings = { vm.openHub(Screen.Settings) },
-                    onOpenAlbum = { vm.openHub(Screen.Album) },
-                    habitUi = habitUi,
+                    onSearch = { vm.openHub(Screen.Search) },
+                    month = vm.calendarMonth,
+                    markers = vm.monthMarkers,
+                    dayEntries = vm.dayEntries,
+                    selected = vm.calendarSelected,
+                    onMonthChange = vm::showMonth,
+                    onSelect = vm::selectDay,
+                    onNewEntry = { vm.openNew(it) },
+                    loadForExport = vm::entriesForExport,
+                    completions = completions,
+                )
+
+                Screen.Library -> LibraryScreen(
+                    books = vm.books,
+                    games = vm.games,
+                    watch = vm.watchItems,
+                    albumTotal = vm.albumTotal,
                     booksEnabled = vm.settings.booksEnabled,
-                    onOpenBooks = { vm.openHub(Screen.Books) },
                     gamesEnabled = vm.settings.gamesEnabled,
-                    onOpenGames = { vm.openHub(Screen.Games) },
                     watchEnabled = vm.settings.watchEnabled,
+                    bookCover = vm::bookCover,
+                    gameCover = vm::gameCover,
+                    watchCover = vm::watchCover,
+                    onOpenBooks = { vm.openHub(Screen.Books) },
+                    onOpenGames = { vm.openHub(Screen.Games) },
                     onOpenWatch = { vm.openHub(Screen.Watch) },
+                    onOpenAlbum = { vm.openHub(Screen.Album) },
+                    onUpdateBook = vm::updateBook,
+                    onDeleteBook = vm::deleteBook,
+                    onUpdateGame = vm::updateGame,
+                    onDeleteGame = vm::deleteGame,
+                    onUpdateWatch = vm::updateWatch,
+                    onDeleteWatch = vm::deleteWatch,
+                )
+
+                Screen.More -> MoreScreen(
+                    entryCount = vm.homeStats.total,
+                    onInsights = { vm.openHub(Screen.Insights) },
+                    onHabits = { vm.openHub(Screen.Habits) },
+                    onSettings = { vm.openHub(Screen.Settings) },
+                    profileName = vm.settings.profileName,
+                    profileEmoji = vm.settings.profileEmoji,
+                    profilePhoto = profilePhoto,
+                    level = vm.level,
+                    onProfile = { vm.openHub(Screen.Profile) },
+                )
+
+                Screen.Profile -> ProfileScreen(
+                    name = vm.settings.profileName,
+                    emoji = vm.settings.profileEmoji,
+                    photo = profilePhoto,
+                    bio = vm.settings.profileBio,
+                    bannerIndex = vm.settings.profileBanner,
+                    level = vm.level,
+                    stats = vm.progressStats,
+                    celebratedAwards = vm.settings.celebratedAwards.orEmpty(),
+                    onSave = vm::updateProfile,
+                    onPickPhoto = vm::setProfilePhoto,
+                    onClearPhoto = vm::clearProfilePhoto,
+                    onJourney = { vm.openHub(Screen.LevelPath, from = Screen.Profile) },
+                    onBack = vm::goBack,
+                )
+
+                Screen.LevelPath -> LevelPathScreen(
+                    level = vm.level,
+                    emoji = vm.settings.profileEmoji,
+                    photo = profilePhoto,
+                    onBack = vm::goBack,
                 )
 
                 Screen.Watch -> WatchScreen(
@@ -97,6 +188,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onAdd = vm::addHabit,
                     onUpdate = vm::updateHabit,
                     onDelete = vm::deleteHabit,
+                    onToggleToday = { id, done -> vm.setHabit(id, java.time.LocalDate.now(), done) },
                     onBack = vm::goBack,
                 )
 
@@ -132,6 +224,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onOpenEntry = { vm.openDetail(it.id, from = Screen.Calendar) },
                     onNewEntry = { vm.openNew(it, from = Screen.Calendar) },
                     loadForExport = vm::entriesForExport,
+                    completions = completions,
                 )
 
                 Screen.Search -> SearchScreen(
@@ -168,6 +261,9 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onDisconnectDrive = vm::disconnectDrive,
                     storage = vm.storage,
                     habitCount = vm.habits.size,
+                    habits = vm.habits,
+                    onNudges = vm::setNudges,
+                    onHabitNudge = vm::setHabitNudge,
                     onOpenHabits = { vm.openHub(Screen.Habits, from = Screen.Settings) },
                     onOpenBooks = { vm.openHub(Screen.Books, from = Screen.Settings) },
                     onOpenGames = { vm.openHub(Screen.Games, from = Screen.Settings) },
@@ -185,7 +281,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                             onDelete = { vm.delete(entry) },
                             onFlip = vm::flipDetail,
                             habitUi = habitUi,
-                            booksUi = booksUi,
+                            mediaUi = mediaUi,
+                            onLinks = { vm.updateLinks(entry, it) },
                         )
                     } else {
                         Box(Modifier.fillMaxSize())
@@ -199,11 +296,41 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onPickImages = vm::addImages,
                     onAddDrawing = vm::addDrawing,
                     habitUi = habitUi,
-                    booksUi = booksUi,
+                    mediaUi = mediaUi,
                     onSave = { vm.save(screen.entry, it, screen.isNew) },
                     onDiscard = { vm.discard(screen.entry, screen.isNew) },
                 )
             }
+        }
+
+        AnimatedVisibility(
+            visible = vm.screen.isTab() && !vm.locked,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically(tween(350, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(250)),
+            exit = slideOutVertically(tween(250)) { it } + fadeOut(tween(200)),
+        ) {
+            FloatingNavBar(current = vm.screen, onTab = vm::openTab, onAdd = { vm.openQuickAdd() })
+        }
+
+        if (vm.quickAddOpen && !vm.locked) {
+            QuickAddSheet(
+                groups = vm.settings.activityGroups,
+                activitiesEnabled = vm.settings.quickActivities,
+                habitUi = habitUi,
+                mediaUi = mediaUi,
+                initialMood = vm.quickAddMood,
+                onDismiss = vm::closeQuickAdd,
+                onSave = vm::saveQuickEntry,
+                onFullNote = vm::quickToEditor,
+                onGroupsChange = vm::updateActivityGroups,
+            )
+        }
+
+        if (!vm.locked) {
+            CompletionCelebration(vm.celebration, vm.settings.habitSound, vm::clearCelebration)
+            if (vm.levelUp == null && vm.entrySplash == null) AwardBanner(vm.awardBanner, vm::dismissAwardBanner)
+            EntrySavedSplash(vm.entrySplash, vm.settings.habitSound, vm::dismissEntrySplash)
+            if (vm.entrySplash == null) LevelUpOverlay(vm.levelUp, vm.settings.habitSound, vm::dismissLevelUp)
         }
 
         AnimatedVisibility(
@@ -220,7 +347,22 @@ fun DiaryApp(vm: DiaryViewModel) {
     }
 }
 
+private fun completionPosters(vm: DiaryViewModel): Map<Long, List<File>> {
+    val zone = ZoneId.systemDefault()
+    fun day(millis: Long) = Instant.ofEpochMilli(millis).atZone(zone).toLocalDate().toEpochDay()
+    val map = HashMap<Long, MutableList<File>>()
+    fun add(millis: Long?, cover: String?, file: (String) -> File) {
+        if (millis != null && cover != null) map.getOrPut(day(millis)) { mutableListOf() }.add(file(cover))
+    }
+    vm.books.filter { it.status == BookStatus.Finished }.forEach { add(it.finishedAt, it.cover, vm::bookCover) }
+    vm.games.filter { it.status == GameStatus.Completed }.forEach { add(it.completedAt, it.cover, vm::gameCover) }
+    vm.watchItems.filter { it.status == WatchStatus.Watched }.forEach { add(it.finishedAt, it.cover, vm::watchCover) }
+    return map
+}
+
 private fun screenTransition(from: Screen, to: Screen): ContentTransform = when {
+    from.isTab() && to.isTab() -> fadeIn(tween(260)) togetherWith fadeOut(tween(180))
+
     to is Screen.Editor ->
         (slideInVertically(tween(450, easing = FastOutSlowInEasing)) { it / 5 } + fadeIn(tween(350))) togetherWith
             (fadeOut(tween(250)) + scaleOut(tween(400), targetScale = 0.94f))

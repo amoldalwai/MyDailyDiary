@@ -99,5 +99,6 @@ class BootReceiver : BroadcastReceiver() {
         if (settings.reminderEnabled) {
             ReminderScheduler.schedule(context, settings.reminderHour, settings.reminderMinute)
         }
+        if (settings.nudgesEnabled) HabitNudges.schedule(context, settings)
     }
 }

@@ -49,6 +49,16 @@ class HabitsRepository(context: Context) {
         upsertCheck(habitId, epochDay, HabitCheck(done, System.currentTimeMillis()))
     }
 
+    /** Days on which every current habit was ticked. */
+    suspend fun perfectDays(): Int = withContext(Dispatchers.IO) {
+        db.rawQuery(
+            "SELECT COUNT(*) FROM (SELECT c.date_epoch FROM habit_checks c JOIN habits h ON h.id = c.habit_id " +
+                "WHERE c.done = 1 AND h.deleted = 0 GROUP BY c.date_epoch " +
+                "HAVING COUNT(*) >= (SELECT COUNT(*) FROM habits WHERE deleted = 0))",
+            null,
+        ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
+    }
+
     suspend fun stats(today: LocalDate): List<HabitStat> = withContext(Dispatchers.IO) {
         val habits = buildList {
             db.rawQuery(

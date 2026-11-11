@@ -19,6 +19,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -90,6 +93,8 @@ fun CalendarScreen(
     onOpenEntry: (DiaryEntry) -> Unit,
     onNewEntry: (LocalDate) -> Unit,
     loadForExport: suspend (from: Long?, to: Long?) -> List<DiaryEntry>,
+    completions: Map<Long, List<File>> = emptyMap(),
+    embedded: Boolean = false,
 ) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
@@ -99,19 +104,22 @@ fun CalendarScreen(
     val today = remember { LocalDate.now() }
     val monthCount = markers.values.sumOf { it.count }
 
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(colors.background, colors.surfaceVariant)))) {
-        FloatingBlobs()
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+    // Embedded in the Journal tab: no own background, insets or back arrow.
+    Box(Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.background(Brush.verticalGradient(listOf(colors.background, colors.surfaceVariant))))) {
+        if (!embedded) FloatingBlobs()
+        Column(Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.statusBarsPadding().navigationBarsPadding())) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = colors.onBackground)
+                if (!embedded) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, "Back", tint = colors.onBackground)
+                    }
+                    Text(
+                        "Calendar",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onBackground,
+                    )
                 }
-                Text(
-                    "Calendar",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onBackground,
-                )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = {
                     scope.launch {
@@ -145,7 +153,7 @@ fun CalendarScreen(
                 Spacer(Modifier.width(8.dp))
             }
 
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = if (embedded) 130.dp else 0.dp)) {
                 Spacer(Modifier.height(8.dp))
                 Column(
                     Modifier
@@ -196,7 +204,7 @@ fun CalendarScreen(
                         modifier = Modifier.animateContentSize(),
                         label = "month",
                     ) { m ->
-                        MonthGrid(m, today, selected, markers, onSelect)
+                        MonthGrid(m, today, selected, markers, completions, onSelect)
                     }
                 }
 
@@ -211,7 +219,7 @@ fun CalendarScreen(
                     Spacer(Modifier.height(12.dp))
                     if (dayEntries.isEmpty()) {
                         Text(
-                            if (selected.isAfter(today)) "This day hasn't happened yet." else "No entry for this day.",
+                            if (selected.isBefore(today)) "No entry for this day. Past days can't be added to." else "Nothing planned for this day yet.",
                             color = colors.onSurfaceVariant,
                         )
                     } else {
@@ -221,7 +229,23 @@ fun CalendarScreen(
                             }
                         }
                     }
-                    if (!selected.isAfter(today)) {
+                    val finished = completions[selected.toEpochDay()].orEmpty()
+                    if (finished.isNotEmpty()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text("Finished this day", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            finished.forEach { file ->
+                                AsyncImage(
+                                    model = file,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.width(66.dp).aspectRatio(0.68f).clip(RoundedCornerShape(10.dp)),
+                                )
+                            }
+                        }
+                    }
+                    if (!selected.isBefore(today)) {
                         Spacer(Modifier.height(16.dp))
                         Row(
                             Modifier
@@ -283,6 +307,7 @@ private fun MonthGrid(
     today: LocalDate,
     selected: LocalDate,
     markers: Map<Long, DayMarker>,
+    completions: Map<Long, List<File>>,
     onSelect: (LocalDate) -> Unit,
 ) {
     val first = remember { WeekFields.of(Locale.getDefault()).firstDayOfWeek }
@@ -303,6 +328,7 @@ private fun MonthGrid(
                             isToday = date == today,
                             isFuture = date.isAfter(today),
                             marker = markers[date.toEpochDay()],
+                            poster = completions[date.toEpochDay()]?.firstOrNull(),
                             onClick = { onSelect(date) },
                             modifier = Modifier.weight(1f),
                         )
@@ -320,6 +346,7 @@ private fun DayCell(
     isToday: Boolean,
     isFuture: Boolean,
     marker: DayMarker?,
+    poster: File?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -350,9 +377,17 @@ private fun DayCell(
             .clip(shape)
             .background(fill)
             .then(if (isToday && !isSelected) Modifier.border(1.5.dp, colors.primary, shape) else Modifier)
-            .clickable(enabled = !isFuture, onClick = onClick),
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        if (poster != null) {
+            AsyncImage(
+                model = poster,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 3.dp, end = 3.dp).size(width = 13.dp, height = 19.dp).clip(RoundedCornerShape(3.dp)),
+            )
+        }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "${date.dayOfMonth}",
@@ -360,7 +395,7 @@ private fun DayCell(
                 fontWeight = if (isToday || isSelected) FontWeight.Bold else FontWeight.Medium,
                 color = when {
                     isSelected -> colors.onPrimary
-                    isFuture -> colors.onSurfaceVariant.copy(alpha = 0.4f)
+                    isFuture -> colors.onSurface.copy(alpha = 0.7f)
                     else -> colors.onSurface
                 },
             )

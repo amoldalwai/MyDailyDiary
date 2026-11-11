@@ -65,6 +65,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationManagerCompat
 import com.amoldalwai.diary.reminder.ReminderScheduler
+import com.amoldalwai.diary.reminder.HabitNudges
+import com.amoldalwai.diary.data.Habit
+import com.amoldalwai.diary.data.HabitNudge
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.SettingsStore
 import com.amoldalwai.diary.data.StorageUsage
@@ -96,6 +101,9 @@ fun SettingsScreen(
     onDisconnectDrive: () -> Unit,
     storage: StorageUsage?,
     habitCount: Int,
+    habits: List<Habit>,
+    onNudges: (enabled: Boolean, from: Int, to: Int, gap: Int) -> Unit,
+    onHabitNudge: (habitId: String, nudge: HabitNudge) -> Unit,
     onOpenHabits: () -> Unit,
     onOpenBooks: () -> Unit,
     onOpenGames: () -> Unit,
@@ -120,6 +128,35 @@ fun SettingsScreen(
             onSetReminder(true, settings.reminderHour, settings.reminderMinute)
         } else {
             Toast.makeText(context, "Allow notifications to get reminders", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val nudgePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            onNudges(true, settings.nudgeFrom, settings.nudgeTo, settings.nudgeGap)
+        } else {
+            Toast.makeText(context, "Allow notifications to get habit nudges", Toast.LENGTH_LONG).show()
+        }
+    }
+    var nudgeTarget by remember { mutableStateOf<NudgeTarget?>(null) }
+
+    fun toggleNudges(on: Boolean) {
+        val needsPermission = on && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        if (needsPermission) nudgePermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        else onNudges(on, settings.nudgeFrom, settings.nudgeTo, settings.nudgeGap)
+    }
+
+    fun applyPicked(target: NudgeTarget, minutes: Int) {
+        val habit = target.habitId?.let { settings.nudgeFor(it) }
+        val curFrom = habit?.from?.takeIf { it >= 0 } ?: settings.nudgeFrom
+        val curTo = habit?.to?.takeIf { it >= 0 } ?: settings.nudgeTo
+        val from = if (target.isFrom) minutes else curFrom
+        val to = if (target.isFrom) curTo else minutes
+        when {
+            to <= from -> Toast.makeText(context, "The start has to be before the end", Toast.LENGTH_SHORT).show()
+            target.habitId == null -> onNudges(settings.nudgesEnabled, from, to, settings.nudgeGap)
+            else -> onHabitNudge(target.habitId, habit!!.copy(from = from, to = to))
         }
     }
 
@@ -155,6 +192,25 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("Habit sounds", "Play a chime when you tick a habit", settings.habitSound) { settings.updateHabitSound(it) }
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow("Habit nudges", "Ask about one unfinished habit at a time through the day", settings.nudgesEnabled) { toggleNudges(it) }
+                    AnimatedVisibility(settings.nudgesEnabled) {
+                        NudgeSettings(
+                            settings = settings,
+                            habits = habits,
+                            onGap = { onNudges(true, settings.nudgeFrom, settings.nudgeTo, it) },
+                            onPick = { nudgeTarget = it },
+                            onHabitNudge = onHabitNudge,
+                            onTest = {
+                                scope.launch {
+                                    val sent = withContext(Dispatchers.IO) { HabitNudges.nudge(context, settings, ignoreWindow = true) }
+                                    if (!sent) Toast.makeText(context, "Every habit is already done today", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ToggleRow("Activity chips", "Show Work, Study, Health, Social and Hobbies in Quick Add", settings.quickActivities) { settings.updateQuickActivities(it) }
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("Books", "Track what you're reading on your journal pages", settings.booksEnabled) { settings.updateBooksEnabled(it) }
                     AnimatedVisibility(settings.booksEnabled) {
@@ -195,6 +251,10 @@ fun SettingsScreen(
                             ) { settings.updateTheme(mode) }
                         }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    Text("Colours", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                    Spacer(Modifier.height(8.dp))
+                    PalettePicker(settings.palette, darkMode = appIsDark()) { settings.updatePalette(it) }
                 }
 
                 SettingsCard("Privacy", Modifier.staggeredEntrance(1)) {
@@ -371,6 +431,24 @@ fun SettingsScreen(
         )
     }
 
+    nudgeTarget?.let { target ->
+        val n = target.habitId?.let { settings.nudgeFor(it) }
+        val initial = if (target.isFrom) n?.from?.takeIf { it >= 0 } ?: settings.nudgeFrom else n?.to?.takeIf { it >= 0 } ?: settings.nudgeTo
+        val state = rememberTimePickerState(initial / 60, initial % 60, is24Hour = false)
+        AlertDialog(
+            onDismissRequest = { nudgeTarget = null },
+            title = { Text(if (target.isFrom) "Start asking from" else "Stop asking after") },
+            confirmButton = {
+                TextButton(onClick = {
+                    applyPicked(target, state.hour * 60 + state.minute)
+                    nudgeTarget = null
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { nudgeTarget = null }) { Text("Cancel") } },
+            text = { TimePicker(state) },
+        )
+    }
+
     if (showTimePicker) {
         val state = rememberTimePickerState(settings.reminderHour, settings.reminderMinute, is24Hour = false)
         AlertDialog(
@@ -479,6 +557,83 @@ private fun StorageLine(color: androidx.compose.ui.graphics.Color, title: String
             Text(detail, fontSize = 12.sp, color = colors.onSurfaceVariant)
         }
         Text(size, color = colors.onSurface, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** Which end of which window is being edited; a null [habitId] is the shared window. */
+private data class NudgeTarget(val habitId: String?, val isFrom: Boolean)
+
+private val nudgeGaps = listOf(30 to "30 min", 60 to "1 h", 90 to "1.5 h", 120 to "2 h", 180 to "3 h")
+
+private fun clock(minutes: Int): String =
+    LocalTime.of(minutes / 60, minutes % 60).format(DateTimeFormatter.ofPattern("h:mm a", Locale.getDefault()))
+
+@Composable
+private fun NudgeSettings(
+    settings: SettingsStore,
+    habits: List<Habit>,
+    onGap: (Int) -> Unit,
+    onPick: (NudgeTarget) -> Unit,
+    onHabitNudge: (String, HabitNudge) -> Unit,
+    onTest: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Column {
+        Spacer(Modifier.height(14.dp))
+        Text("Ask between", fontWeight = FontWeight.Medium, color = colors.onSurface)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TimeChip(clock(settings.nudgeFrom), Modifier.weight(1f)) { onPick(NudgeTarget(null, true)) }
+            Text("to", color = colors.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterVertically))
+            TimeChip(clock(settings.nudgeTo), Modifier.weight(1f)) { onPick(NudgeTarget(null, false)) }
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("Time between nudges", fontWeight = FontWeight.Medium, color = colors.onSurface)
+        Text("Only one habit is asked about at a time, and a habit you've done isn't asked again today.", fontSize = 12.sp, color = colors.onSurfaceVariant)
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            nudgeGaps.forEach { (minutes, label) -> ChoicePill(label, settings.nudgeGap == minutes, Modifier.weight(1f)) { onGap(minutes) } }
+        }
+        Spacer(Modifier.height(14.dp))
+        Text("Habits to ask about", fontWeight = FontWeight.Medium, color = colors.onSurface)
+        Spacer(Modifier.height(6.dp))
+        if (habits.isEmpty()) {
+            Text("Add a habit first and it will show up here.", fontSize = 13.sp, color = colors.onSurfaceVariant)
+        }
+        habits.forEach { habit ->
+            val nudge = settings.nudgeFor(habit.id)
+            val custom = nudge.from >= 0 && nudge.to >= 0
+            Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${habit.emoji}  ${habit.name}", color = colors.onSurface, modifier = Modifier.weight(1f))
+                    Switch(checked = nudge.on, onCheckedChange = { onHabitNudge(habit.id, nudge.copy(on = it)) })
+                }
+                if (nudge.on) {
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        TimeChip(clock(if (custom) nudge.from else settings.nudgeFrom), Modifier.weight(1f), faded = !custom) { onPick(NudgeTarget(habit.id, true)) }
+                        Text("to", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                        TimeChip(clock(if (custom) nudge.to else settings.nudgeTo), Modifier.weight(1f), faded = !custom) { onPick(NudgeTarget(habit.id, false)) }
+                        if (custom) {
+                            TextButton(onClick = { onHabitNudge(habit.id, nudge.copy(from = -1, to = -1)) }) { Text("Reset", fontSize = 12.sp) }
+                        }
+                    }
+                    if (!custom) Text("Uses the shared window", fontSize = 11.sp, color = colors.onSurfaceVariant)
+                }
+            }
+        }
+        TextButton(onClick = onTest) { Text("Send a test nudge") }
+    }
+}
+
+@Composable
+private fun TimeChip(label: String, modifier: Modifier = Modifier, faded: Boolean = false, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier.bouncyClick(onClick).clip(RoundedCornerShape(14.dp)).background(colors.surfaceVariant).padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = if (faded) colors.onSurfaceVariant else colors.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
 

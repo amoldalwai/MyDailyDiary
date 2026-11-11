@@ -183,38 +183,6 @@ fun BookProgressRow(
     }
 }
 
-/** The "Books" block on a journal page: progress for books being read, and a way to add one. */
-@Composable
-fun BooksPanel(ui: BooksUi, date: LocalDate, ink: Color, onAdd: () -> Unit) {
-    val context = LocalContext.current
-    LaunchedEffect(date) { ui.loadLogs(date) }
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (ui.reading.isEmpty()) {
-            Text("No book in progress.", color = ink.copy(alpha = 0.6f), fontSize = 14.sp)
-        }
-        ui.reading.forEach { book ->
-            BookProgressRow(book, ui.pageOn(book, date), ink, ui.cover) { page ->
-                ui.setPage(book, date, page) { finished ->
-                    Chime.play()
-                    Toast.makeText(context, "Finished “${finished.title}” 🎉", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-        Row(
-            Modifier
-                .bouncyClick(onAdd)
-                .clip(CircleShape)
-                .background(ink.copy(alpha = 0.1f))
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Add, null, tint = ink, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Add a book", color = ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
 private val statusLabels = mapOf(
     BookStatus.Reading to "Reading now",
     BookStatus.Want to "Want to read",

@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
                 ThemeMode.Light -> false
                 ThemeMode.Dark -> true
             }
-            DiaryTheme(darkTheme = dark) {
+            DiaryTheme(darkTheme = dark, palette = vm.settings.palette) {
                 DiaryApp(vm)
             }
         }

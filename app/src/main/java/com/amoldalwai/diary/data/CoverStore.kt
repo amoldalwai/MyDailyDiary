@@ -9,26 +9,62 @@ import java.io.File
 import java.util.UUID
 import kotlin.math.max
 
-/** Saves downloaded cover art as an about-500 px portrait JPEG; shared by every library section. */
+/** Saves downloaded cover art as a small portrait JPEG (covers are never zoomed); shared by every library section. */
 object CoverStore {
-    private const val POSTER_W = 500
-    private const val POSTER_H = 735
+    private const val POSTER_W = 360
+    private const val POSTER_H = 530
+    private const val QUALITY = 72
 
     /** Returns the stored file name, or null when the bytes are not a decodable image. */
     fun save(dir: File, prefix: String, bytes: ByteArray): String? = runCatching {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         if (bounds.outWidth <= 0) return@runCatching null
-        val options = BitmapFactory.Options().apply { inSampleSize = max(1, bounds.outWidth / 500) }
-        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@runCatching null
+        val options = BitmapFactory.Options().apply { inSampleSize = max(1, bounds.outWidth / POSTER_W) }
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@runCatching null
+        val bitmap = fitWidth(decoded)
         // Wide art (game headers, logos, banners) becomes a poster so every tile has the same shape.
         val poster = if (bitmap.width.toFloat() / bitmap.height > 0.8f) toPoster(bitmap) else bitmap
         val name = "${prefix}${UUID.randomUUID()}.jpg"
-        File(dir, name).outputStream().use { poster.compress(Bitmap.CompressFormat.JPEG, 80, it) }
+        File(dir, name).outputStream().use { poster.compress(Bitmap.CompressFormat.JPEG, QUALITY, it) }
         if (poster !== bitmap) poster.recycle()
         bitmap.recycle()
         name
     }.getOrNull()
+
+    private fun fitWidth(src: Bitmap): Bitmap {
+        if (src.width <= POSTER_W) return src
+        val scaled = Bitmap.createScaledBitmap(src, POSTER_W, src.height * POSTER_W / src.width, true)
+        if (scaled !== src) src.recycle()
+        return scaled
+    }
+
+    /** Re-encodes covers saved by older versions at the current size; returns the bytes freed. */
+    fun shrinkExisting(dir: File): Long {
+        var freed = 0L
+        dir.listFiles { f -> COVER_PREFIXES.any { f.name.startsWith(it) } }.orEmpty().forEach { file ->
+            runCatching {
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.path, bounds)
+                if (bounds.outWidth <= POSTER_W && file.length() < 40_000) return@runCatching
+                val options = BitmapFactory.Options().apply { inSampleSize = max(1, bounds.outWidth / POSTER_W) }
+                val decoded = BitmapFactory.decodeFile(file.path, options) ?: return@runCatching
+                val bitmap = fitWidth(decoded)
+                val tmp = File(dir, file.name + ".tmp")
+                tmp.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, QUALITY, it) }
+                bitmap.recycle()
+                if (tmp.length() < file.length()) {
+                    freed += file.length() - tmp.length()
+                    tmp.renameTo(file)
+                } else {
+                    tmp.delete()
+                }
+            }
+        }
+        return freed
+    }
+
+    private val COVER_PREFIXES = listOf("book_", "game_", "watch_")
 
     private fun toPoster(src: Bitmap): Bitmap {
         val out = Bitmap.createBitmap(POSTER_W, POSTER_H, Bitmap.Config.ARGB_8888)

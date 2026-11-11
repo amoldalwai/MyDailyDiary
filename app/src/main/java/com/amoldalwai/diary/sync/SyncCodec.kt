@@ -26,6 +26,7 @@ object SyncCodec {
         put("images", JSONArray(e.images))
         put("tags", JSONArray(e.tags))
         put("spans", JSONArray(RichText.spansToJson(e.spans)))
+        put("links", JSONArray(e.links))
     }.toString()
 
     fun decode(json: String): DiaryEntry {
@@ -53,6 +54,7 @@ object SyncCodec {
             images = strings("images"),
             tags = strings("tags"),
             spans = RichText.spansFromJson(o.optJSONArray("spans")?.toString()),
+            links = strings("links"),
         )
     }
 }

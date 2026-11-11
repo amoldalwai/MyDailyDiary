@@ -58,6 +58,31 @@ class DiaryRepository(context: Context) {
 
     fun imageFile(name: String) = File(imagesDir, name)
 
+    private val profileDir = File(appContext.filesDir, "profile").apply { mkdirs() }
+
+    fun profileFile(name: String) = File(profileDir, name)
+
+    suspend fun deleteProfileFile(name: String) = withContext(Dispatchers.IO) { profileFile(name).delete() }
+
+    /** Saves a picked photo as a square 640 px JPEG for the profile avatar and returns its file name. */
+    suspend fun importProfilePhoto(uri: Uri): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(resolver, uri)) { decoder, info, _ ->
+                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+                val shortest = minOf(info.size.width, info.size.height)
+                if (shortest > 640) {
+                    val ratio = 640f / shortest
+                    decoder.setTargetSize((info.size.width * ratio).roundToInt(), (info.size.height * ratio).roundToInt())
+                }
+            }
+            val side = minOf(bitmap.width, bitmap.height)
+            val square = Bitmap.createBitmap(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side)
+            val name = "profile_${UUID.randomUUID()}.jpg"
+            profileFile(name).outputStream().use { square.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+            name
+        }.getOrNull()
+    }
+
     // ---- Reads ----
 
     suspend fun getEntry(id: String): DiaryEntry? = withContext(Dispatchers.IO) {
@@ -225,6 +250,26 @@ class DiaryRepository(context: Context) {
         scalar("SELECT COALESCE(SUM(image_count), 0) FROM entries")
     }
 
+    /** Entry count, photos that earn points (capped per entry) and the longest run of consecutive days, for the progress board. */
+    suspend fun progressBasics(): Triple<Int, Int, Int> = withContext(Dispatchers.IO) {
+        var longest = 0
+        var run = 0
+        var prev = Long.MIN_VALUE
+        db.rawQuery("SELECT DISTINCT date_epoch FROM entries ORDER BY date_epoch", null).use {
+            while (it.moveToNext()) {
+                val d = it.getLong(0)
+                run = if (d == prev + 1) run + 1 else 1
+                longest = max(longest, run)
+                prev = d
+            }
+        }
+        Triple(
+            scalar("SELECT COUNT(*) FROM entries"),
+            scalar("SELECT COALESCE(SUM(MIN(image_count, ${Progress.PHOTOS_PER_ENTRY})), 0) FROM entries"),
+            longest,
+        )
+    }
+
     suspend fun storageUsage(): StorageUsage = withContext(Dispatchers.IO) {
         val dbFile = appContext.getDatabasePath("diary.db")
         val dataBytes = listOf(dbFile, File(dbFile.path + "-wal"), File(dbFile.path + "-shm")).filter { it.exists() }.sumOf { it.length() }
@@ -373,6 +418,7 @@ class DiaryRepository(context: Context) {
             put("line_color", e.style.lineColorId)
             put("margin", if (e.style.margin) 1 else 0)
             put("spans", RichText.spansToJson(e.spans))
+            put("links", JSONArray(e.links).toString())
         }
         db.beginTransaction()
         try {
@@ -407,7 +453,7 @@ class DiaryRepository(context: Context) {
         val body = if (full) "e.body" else "substr(e.body, 1, $PREVIEW_CHARS) AS body"
         val direction = if (ascending) "ASC" else "DESC"
         val sql = "SELECT e.id, e.date_epoch, e.created_at, e.updated_at, e.title, $body, e.mood, e.bg, e.font, e.font_scale, e.images, " +
-            "e.lines, e.line_color, e.margin, e.spans " +
+            "e.lines, e.line_color, e.margin, e.spans, e.links " +
             "FROM entries e" +
             (if (conditions.isEmpty()) "" else " WHERE " + conditions.joinToString(" AND ")) +
             " ORDER BY e.date_epoch $direction, e.created_at $direction" +
@@ -434,6 +480,7 @@ class DiaryRepository(context: Context) {
                     ),
                     images = parseList(c.getString(10)),
                     spans = RichText.spansFromJson(c.getString(14)),
+                    links = parseList(c.getString(15)),
                 )
             }
         }

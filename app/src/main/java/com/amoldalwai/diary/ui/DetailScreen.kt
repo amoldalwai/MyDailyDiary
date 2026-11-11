@@ -89,7 +89,8 @@ fun DetailScreen(
     onDelete: () -> Unit,
     onFlip: (newer: Boolean, onNone: () -> Unit) -> Unit,
     habitUi: HabitUi,
-    booksUi: BooksUi,
+    mediaUi: MediaUi,
+    onLinks: (List<String>) -> Unit,
 ) {
     val context = LocalContext.current
     AnimatedContent(
@@ -112,7 +113,8 @@ fun DetailScreen(
             onEdit = onEdit,
             onDelete = onDelete,
             habitUi = habitUi,
-            booksUi = booksUi,
+            mediaUi = mediaUi,
+            onLinks = onLinks,
             onSwipe = { newer ->
                 onFlip(newer) {
                     Toast.makeText(context, if (newer) "That's your latest entry" else "That's your first entry", Toast.LENGTH_SHORT).show()
@@ -131,7 +133,8 @@ private fun DetailPage(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     habitUi: HabitUi,
-    booksUi: BooksUi,
+    mediaUi: MediaUi,
+    onLinks: (List<String>) -> Unit,
     onSwipe: (newer: Boolean) -> Unit,
 ) {
     val bg = PageStyles.background(entry.style.backgroundId)
@@ -139,7 +142,6 @@ private fun DetailPage(
     val scale = entry.style.fontScale
     var confirmDelete by remember { mutableStateOf(false) }
     var viewing by remember { mutableStateOf<String?>(null) }
-    var showBookSearch by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val startPad by animateDpAsState(if (entry.style.margin) 50.dp else 24.dp, label = "pageStart")
@@ -274,12 +276,6 @@ private fun DetailPage(
                         onToggle = { habitUi.toggle(it, entry.date) },
                     )
                 }
-                if (booksUi.enabled) {
-                    Spacer(Modifier.height(28.dp))
-                    Text("BOOKS", color = bg.inkSoft, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    BooksPanel(booksUi, entry.date, bg.ink) { showBookSearch = true }
-                }
 
                 if (entry.images.isNotEmpty()) {
                     Spacer(Modifier.height(32.dp))
@@ -296,16 +292,22 @@ private fun DetailPage(
                         }
                     }
                 }
+                if (mediaUi.anyEnabled) {
+                    Spacer(Modifier.height(32.dp))
+                    Text("BOOKS · MOVIES · GAMES", color = bg.inkSoft, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(10.dp))
+                    EntryMediaSection(
+                        links = entry.links,
+                        onLinks = onLinks,
+                        date = entry.date,
+                        ui = mediaUi,
+                        ink = bg.ink,
+                        onInk = bg.onInk,
+                    )
+                }
                 Spacer(Modifier.height(40.dp))
             }
         }
-    }
-
-    if (showBookSearch) {
-        BookSearchSheet(
-            onDismiss = { showBookSearch = false },
-            onAdd = { result, status, total, current -> booksUi.addBook(result, status, total, current) {} },
-        )
     }
 
     if (confirmDelete) {

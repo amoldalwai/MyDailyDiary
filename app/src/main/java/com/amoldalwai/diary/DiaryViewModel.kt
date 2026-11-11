@@ -6,19 +6,23 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.SystemClock
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.amoldalwai.diary.data.DayMarker
+import com.amoldalwai.diary.data.ActivityGroup
 import com.amoldalwai.diary.data.Book
 import com.amoldalwai.diary.data.BookResult
 import com.amoldalwai.diary.data.BookStatus
 import com.amoldalwai.diary.data.BooksRepository
+import com.amoldalwai.diary.data.CoverStore
 import com.amoldalwai.diary.data.Habit
 import com.amoldalwai.diary.data.Game
 import com.amoldalwai.diary.data.GameResult
@@ -32,7 +36,10 @@ import com.amoldalwai.diary.data.WatchRepository
 import com.amoldalwai.diary.data.WatchResult
 import com.amoldalwai.diary.data.WatchStatus
 import com.amoldalwai.diary.data.HabitStat
+import com.amoldalwai.diary.data.HabitNudge
+import com.amoldalwai.diary.reminder.HabitNudges
 import com.amoldalwai.diary.data.HabitsRepository
+import com.amoldalwai.diary.data.HomeHero
 import com.amoldalwai.diary.data.OpenLibrary
 import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.DiaryRepository
@@ -41,6 +48,9 @@ import com.amoldalwai.diary.data.InsightStats
 import com.amoldalwai.diary.data.Mood
 import com.amoldalwai.diary.data.PageCursor
 import com.amoldalwai.diary.data.PhotoRef
+import com.amoldalwai.diary.data.Progress
+import com.amoldalwai.diary.data.ProgressStats
+import com.amoldalwai.diary.data.LevelInfo
 import com.amoldalwai.diary.data.SettingsStore
 import com.amoldalwai.diary.data.StorageUsage
 import com.amoldalwai.diary.reminder.ReminderScheduler
@@ -50,8 +60,10 @@ import com.amoldalwai.diary.sync.DriveAuthException
 import com.amoldalwai.diary.sync.DriveSync
 import com.amoldalwai.diary.sync.SyncState
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -66,6 +78,9 @@ import kotlin.math.max
 
 sealed interface Screen {
     data object Home : Screen
+    data object Journal : Screen
+    data object Library : Screen
+    data object More : Screen
     data object Calendar : Screen
     data object Search : Screen
     data object Insights : Screen
@@ -75,13 +90,26 @@ sealed interface Screen {
     data object Books : Screen
     data object Games : Screen
     data object Watch : Screen
+    data object Profile : Screen
+    data object LevelPath : Screen
     data class Detail(val id: String) : Screen
     data class Editor(val entry: DiaryEntry, val isNew: Boolean) : Screen
 }
 
+fun Screen.isTab() = this is Screen.Home || this is Screen.Journal || this is Screen.Library || this is Screen.More
+
 fun Screen.isHub() =
     this is Screen.Calendar || this is Screen.Search || this is Screen.Insights || this is Screen.Settings ||
-        this is Screen.Album || this is Screen.Habits || this is Screen.Books || this is Screen.Games || this is Screen.Watch
+        this is Screen.Album || this is Screen.Habits || this is Screen.Books || this is Screen.Games || this is Screen.Watch ||
+        this is Screen.Profile || this is Screen.LevelPath
+
+/** A one-off "you finished something" moment: confetti, a chime and a banner. */
+data class Celebration(val token: Int, val message: String)
+
+data class LevelUp(val level: Int, val title: String, val from: Int, val rankUp: Boolean)
+
+/** The splash shown after a journal entry is saved. */
+data class EntrySplash(val token: Int, val points: Int, val streak: Int, val total: Int)
 
 class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private val repo = DiaryRepository(app)
@@ -89,6 +117,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private val booksRepo = BooksRepository(app)
     private val gamesRepo = GamesRepository(app)
     private val watchRepo = WatchRepository(app)
+    private val hero = HomeHero(app)
     private val pendingImages = mutableSetOf<String>()
 
     val settings = SettingsStore(app)
@@ -187,14 +216,168 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     // Where Detail/Editor return to: Home or the hub screen they were opened from.
     private var origin: Screen = Screen.Home
     private var hubReturn: Screen? = null
+    private var currentTab: Screen = Screen.Home
+
+    var quickAddOpen by mutableStateOf(false)
+        private set
+    var quickAddMood by mutableStateOf<Mood?>(null)
+        private set
+
+    // Points, level and awards are worked out from the data above; only the celebrated level is remembered.
+    var progressStats by mutableStateOf(ProgressStats())
+        private set
+    var level by mutableStateOf(Progress.levelFor(0))
+        private set
+    var celebration by mutableStateOf<Celebration?>(null)
+        private set
+    var levelUp by mutableStateOf<LevelUp?>(null)
+        private set
+    var awardBanner by mutableStateOf<List<String>>(emptyList())
+        private set
+    var entrySplash by mutableStateOf<EntrySplash?>(null)
+        private set
+    var heroFile by mutableStateOf<File?>(null)
+        private set
+    var heroLoading by mutableStateOf(false)
+        private set
+    private var celebrationToken = 0
+    private var progressReady = false
 
     init {
+        viewModelScope.launch {
+            heroFile = withContext(Dispatchers.IO) { hero.latest() }
+            refreshHero()
+        }
+        if (!settings.coversShrunk) {
+            viewModelScope.launch(Dispatchers.IO) {
+                val freed = CoverStore.shrinkExisting(booksRepo.imageFile(""))
+                settings.markCoversShrunk()
+                Log.i("Covers", "Shrunk stored covers, freed $freed bytes")
+            }
+        }
         viewModelScope.launch {
             repo.migrateLegacy()
             reloadHome()
             reloadPersonal()
+            progressReady = true
+            refreshProgress()
             runSync()
         }
+        viewModelScope.launch {
+            snapshotFlow { listOf(books, games, watchItems, habits, homeStats, habitDone.values.sumOf { it.size }) }
+                .collectLatest {
+                    if (progressReady) {
+                        delay(400)
+                        refreshProgress()
+                    }
+                }
+        }
+    }
+
+    private suspend fun refreshHero() {
+        hero.refresh(LocalDate.now())?.let { heroFile = it }
+    }
+
+    fun refreshHeroNow() {
+        if (heroLoading) return
+        if (!hero.isOnline()) {
+            Toast.makeText(getApplication(), "You're offline, so the photo stays as it is", Toast.LENGTH_SHORT).show()
+            return
+        }
+        heroLoading = true
+        viewModelScope.launch {
+            val fresh = hero.refresh(LocalDate.now(), force = true)
+            if (fresh != null) heroFile = fresh else Toast.makeText(getApplication(), "Couldn't load a new photo", Toast.LENGTH_SHORT).show()
+            heroLoading = false
+        }
+    }
+
+    private suspend fun refreshProgress() {
+        val (entries, photos, streak) = repo.progressBasics()
+        val b = books
+        val g = games
+        val w = watchItems
+        val stats = ProgressStats(
+            entries = entries,
+            photos = photos,
+            bestStreak = streak,
+            perfectHabitDays = habitsRepo.perfectDays(),
+            booksFinished = b.count { it.status == BookStatus.Finished },
+            gamesCompleted = g.count { it.status == GameStatus.Completed },
+            moviesWatched = w.count { it.kind == WatchKind.Movie && it.status == WatchStatus.Watched },
+            seriesFinished = w.count { it.kind == WatchKind.Series && it.status == WatchStatus.Watched },
+            ratings = b.count { it.rating != null } + g.count { it.rating != null } + w.count { it.rating != null },
+            reviews = b.count { it.review.isNotBlank() } + g.count { it.review.isNotBlank() } + w.count { it.review.isNotBlank() },
+            libraryItems = b.size + g.size + w.size,
+        )
+        val seen = settings.celebratedAwards
+        val info = Progress.levelFor(Progress.points(stats), settings.celebratedLevel)
+        val reached = Progress.reachedKeys(stats)
+        progressStats = stats
+        level = info
+        if (seen == null) {
+            // First run with this feature: existing data counts, but nothing is celebrated.
+            settings.updateCelebrated(info.level, reached)
+            return
+        }
+        val fresh = reached - seen
+        val rose = info.level > settings.celebratedLevel
+        if (!rose && fresh.isEmpty()) return
+        val from = settings.celebratedLevel
+        settings.updateCelebrated(info.level, seen + reached)
+        if (fresh.isNotEmpty()) {
+            awardBanner = fresh.mapNotNull { key ->
+                val award = Progress.awards.firstOrNull { it.id == key.substringBefore(':') } ?: return@mapNotNull null
+                val tier = com.amoldalwai.diary.data.AwardTier.entries[key.substringAfter(':').toInt()]
+                "${award.emoji} ${award.name} · ${tier.label}"
+            }
+        }
+        if (rose) levelUp = LevelUp(info.level, info.title, from, Progress.rankIndex(info.level) > Progress.rankIndex(from))
+    }
+
+    fun dismissLevelUp() {
+        levelUp = null
+    }
+
+    fun dismissAwardBanner() {
+        awardBanner = emptyList()
+    }
+
+    fun celebrate(message: String) {
+        celebration = Celebration(++celebrationToken, message)
+    }
+
+    fun clearCelebration(token: Int) {
+        if (celebration?.token == token) celebration = null
+    }
+
+    fun updateProfile(name: String, emoji: String, bio: String, banner: Int) = settings.updateProfile(name, emoji, bio, banner)
+
+    fun profilePhotoFile(): File? = settings.profilePhoto?.let { repo.profileFile(it) }
+
+    fun setProfilePhoto(uri: Uri) {
+        viewModelScope.launch {
+            val name = repo.importProfilePhoto(uri)
+            if (name == null) {
+                Toast.makeText(getApplication(), "Couldn't use that photo", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            settings.profilePhoto?.let { repo.deleteProfileFile(it) }
+            settings.updateProfilePhoto(name)
+        }
+    }
+
+    fun clearProfilePhoto() {
+        settings.profilePhoto?.let { viewModelScope.launch { repo.deleteProfileFile(it) } }
+        settings.updateProfilePhoto(null)
+    }
+
+    fun dismissEntrySplash() {
+        entrySplash = null
+    }
+
+    private fun showEntrySplash(photos: Int) {
+        entrySplash = EntrySplash(++celebrationToken, Progress.entryPoints(photos), homeStats.streak, homeStats.total)
     }
 
     fun imageFile(name: String): File = repo.imageFile(name)
@@ -208,7 +391,12 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onAppStarted() {
-        if (stoppedAt != 0L) viewModelScope.launch { runSync() }
+        if (stoppedAt != 0L) {
+            viewModelScope.launch { runSync() }
+            viewModelScope.launch { refreshHero() }
+            // A habit may have been ticked from a notification while the app was away.
+            viewModelScope.launch { reloadPersonal() }
+        }
         if (settings.pinEnabled && stoppedAt != 0L && SystemClock.elapsedRealtime() - stoppedAt > LOCK_DELAY_MS) {
             locked = true
         }
@@ -225,6 +413,21 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---- Settings ----
+
+    fun setNudges(enabled: Boolean, from: Int, to: Int, gap: Int) {
+        settings.updateNudges(enabled, from, to, gap)
+        applyNudges()
+    }
+
+    fun setHabitNudge(habitId: String, nudge: HabitNudge) {
+        settings.updateHabitNudge(habitId, nudge)
+        applyNudges()
+    }
+
+    private fun applyNudges() {
+        val context = getApplication<Application>()
+        if (settings.nudgesEnabled) HabitNudges.schedule(context, settings) else HabitNudges.cancel(context)
+    }
 
     fun setReminder(enabled: Boolean, hour: Int, minute: Int) {
         settings.updateReminder(enabled, hour, minute)
@@ -337,15 +540,20 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Flips a habit for a day and returns the new state so the caller can celebrate a tick. */
     fun toggleHabit(habitId: String, date: LocalDate): Boolean {
+        val nowDone = habitId !in habitDone[date.toEpochDay()].orEmpty()
+        setHabit(habitId, date, nowDone)
+        return nowDone
+    }
+
+    fun setHabit(habitId: String, date: LocalDate, done: Boolean) {
         val day = date.toEpochDay()
         val current = habitDone[day].orEmpty()
-        val nowDone = habitId !in current
-        habitDone[day] = if (nowDone) current + habitId else current - habitId
+        habitDone[day] = if (done) current + habitId else current - habitId
         viewModelScope.launch {
-            habitsRepo.setDone(habitId, day, nowDone)
+            habitsRepo.setDone(habitId, day, done)
+            if (screen == Screen.Habits) habitStats = habitsRepo.stats(LocalDate.now())
             scheduleSync()
         }
-        return nowDone
     }
 
     fun addHabit(name: String, emoji: String) {
@@ -379,6 +587,16 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { habitStats = habitsRepo.stats(LocalDate.now()) }
     }
 
+    // Two titles are the same when they only differ in case or spacing.
+    private fun same(a: String, b: String) =
+        a.trim().replace(Regex("\\s+"), " ").equals(b.trim().replace(Regex("\\s+"), " "), ignoreCase = true)
+
+    // The item is already in the library: reuse it, so a journal page links to it instead of a copy.
+    private fun alreadyAdded(title: String, id: String, onDone: (String) -> Unit) {
+        Toast.makeText(getApplication(), "“$title” is already in your library", Toast.LENGTH_SHORT).show()
+        onDone(id)
+    }
+
     // ---- Books ----
 
     fun loadBookDay(date: LocalDate) {
@@ -390,44 +608,55 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun bookCover(name: String): File = booksRepo.imageFile(name)
 
-    fun setBookPage(book: Book, date: LocalDate, page: Int, onFinished: (Book) -> Unit) {
+    fun setBookPage(book: Book, date: LocalDate, page: Int) {
         val day = date.toEpochDay()
         viewModelScope.launch {
             val updated = booksRepo.logPage(book.id, day, page)
             bookLogs[day] = booksRepo.logsOn(day)
             books = booksRepo.books()
-            if (updated != null && updated.status == BookStatus.Finished && book.status != BookStatus.Finished) onFinished(updated)
+            if (updated != null && updated.status == BookStatus.Finished && book.status != BookStatus.Finished) {
+                celebrate("Finished “${updated.title}”")
+            }
             scheduleSync()
         }
     }
 
-    fun addBook(result: BookResult, status: BookStatus, totalPages: Int?, currentPage: Int, onDone: () -> Unit) {
+    fun addBook(result: BookResult, status: BookStatus, totalPages: Int?, currentPage: Int, onDone: (String) -> Unit) {
         viewModelScope.launch {
+            val existing = books.firstOrNull {
+                same(it.title, result.title) && (it.authors.isBlank() || result.authors.isBlank() || same(it.authors, result.authors))
+            }
+            if (existing != null) return@launch alreadyAdded(existing.title, existing.id, onDone)
             val cover = result.coverId?.let { OpenLibrary.downloadCover(it) }?.let { booksRepo.saveCover(it) }
             val now = System.currentTimeMillis()
-            booksRepo.save(
-                Book(
-                    openLibraryKey = result.key,
-                    title = result.title,
-                    authors = result.authors,
-                    year = result.year,
-                    cover = cover,
-                    totalPages = totalPages ?: result.pages,
-                    currentPage = if (status == BookStatus.Finished) (totalPages ?: result.pages ?: currentPage) else currentPage,
-                    status = status,
-                    startedAt = if (status == BookStatus.Want) null else now,
-                    finishedAt = if (status == BookStatus.Finished) now else null,
-                    updatedAt = now,
-                ),
+            val book = Book(
+                openLibraryKey = result.key,
+                title = result.title,
+                authors = result.authors,
+                year = result.year,
+                cover = cover,
+                totalPages = totalPages ?: result.pages,
+                currentPage = if (status == BookStatus.Finished) (totalPages ?: result.pages ?: currentPage) else currentPage,
+                status = status,
+                startedAt = if (status == BookStatus.Want) null else now,
+                finishedAt = if (status == BookStatus.Finished) now else null,
+                updatedAt = now,
             )
+            booksRepo.save(book)
             books = booksRepo.books()
-            onDone()
+            if (status == BookStatus.Finished) celebrate("Finished “${book.title}”")
+            onDone(book.id)
             scheduleSync()
         }
+    }
+
+    fun setBookStatus(id: String, status: BookStatus) {
+        books.firstOrNull { it.id == id }?.let { updateBook(it.copy(status = status)) }
     }
 
     fun updateBook(book: Book) {
         val now = System.currentTimeMillis()
+        val wasFinished = books.firstOrNull { it.id == book.id }?.status == BookStatus.Finished
         val fixed = when (book.status) {
             BookStatus.Want -> book.copy(startedAt = null, finishedAt = null)
             BookStatus.Reading -> book.copy(startedAt = book.startedAt ?: now, finishedAt = null)
@@ -437,6 +666,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                 currentPage = book.totalPages ?: book.currentPage,
             )
         }
+        if (!wasFinished && fixed.status == BookStatus.Finished) celebrate("Finished “${fixed.title}”")
         viewModelScope.launch {
             booksRepo.save(fixed.copy(updatedAt = now))
             books = booksRepo.books()
@@ -457,8 +687,10 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     fun gameCover(name: String): File = gamesRepo.imageFile(name)
 
     /** A result with neither a Steam id nor a cover URL is a hand-typed game and gets no cover. */
-    fun addGame(result: GameResult, platform: String, status: GameStatus, onDone: () -> Unit) {
+    fun addGame(result: GameResult, platform: String, status: GameStatus, onDone: (String) -> Unit) {
         viewModelScope.launch {
+            val existing = games.firstOrNull { same(it.title, result.title) }
+            if (existing != null) return@launch alreadyAdded(existing.title, existing.id, onDone)
             val bytes = when {
                 result.appId > 0 -> SteamStore.downloadCover(result.appId)
                 result.coverUrl != null -> WikipediaGames.downloadCover(result.coverUrl)
@@ -466,33 +698,39 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             }
             val cover = bytes?.let { gamesRepo.saveCover(it) }
             val now = System.currentTimeMillis()
-            gamesRepo.save(
-                Game(
-                    steamAppId = result.appId.takeIf { it > 0 },
-                    title = result.title,
-                    developer = result.developer,
-                    year = result.year,
-                    platform = platform,
-                    cover = cover,
-                    status = status,
-                    startedAt = if (status == GameStatus.Backlog) null else now,
-                    completedAt = if (status == GameStatus.Completed) now else null,
-                    updatedAt = now,
-                ),
+            val game = Game(
+                steamAppId = result.appId.takeIf { it > 0 },
+                title = result.title,
+                developer = result.developer,
+                year = result.year,
+                platform = platform,
+                cover = cover,
+                status = status,
+                startedAt = if (status == GameStatus.Backlog) null else now,
+                completedAt = if (status == GameStatus.Completed) now else null,
+                updatedAt = now,
             )
+            gamesRepo.save(game)
             games = gamesRepo.games()
-            onDone()
+            if (status == GameStatus.Completed) celebrate("Completed “${game.title}”")
+            onDone(game.id)
             scheduleSync()
         }
     }
 
+    fun setGameStatus(id: String, status: GameStatus) {
+        games.firstOrNull { it.id == id }?.let { updateGame(it.copy(status = status)) }
+    }
+
     fun updateGame(game: Game) {
         val now = System.currentTimeMillis()
+        val wasDone = games.firstOrNull { it.id == game.id }?.status == GameStatus.Completed
         val fixed = when (game.status) {
             GameStatus.Backlog -> game.copy(startedAt = null, completedAt = null)
             GameStatus.Playing -> game.copy(startedAt = game.startedAt ?: now, completedAt = null)
             GameStatus.Completed -> game.copy(startedAt = game.startedAt ?: now, completedAt = game.completedAt ?: now)
         }
+        if (!wasDone && fixed.status == GameStatus.Completed) celebrate("Completed “${fixed.title}”")
         viewModelScope.launch {
             gamesRepo.save(fixed.copy(updatedAt = now))
             games = gamesRepo.games()
@@ -512,34 +750,41 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun watchCover(name: String): File = watchRepo.imageFile(name)
 
-    fun addWatch(result: WatchResult, kind: WatchKind, status: WatchStatus, season: Int, episode: Int, onDone: () -> Unit) {
+    fun addWatch(result: WatchResult, kind: WatchKind, status: WatchStatus, season: Int, episode: Int, onDone: (String) -> Unit) {
         viewModelScope.launch {
+            val existing = watchItems.firstOrNull { it.kind == kind && same(it.title, result.title) }
+            if (existing != null) return@launch alreadyAdded(existing.title, existing.id, onDone)
             val bytes = result.coverUrl?.let { WikipediaGames.downloadCover(it) }
             val cover = bytes?.let { watchRepo.saveCover(it) }
             val now = System.currentTimeMillis()
-            watchRepo.save(
-                WatchItem(
-                    kind = kind,
-                    title = result.title,
-                    year = result.year,
-                    info = result.info,
-                    cover = cover,
-                    status = status,
-                    season = if (kind == WatchKind.Series) season else 0,
-                    episode = if (kind == WatchKind.Series) episode else 0,
-                    startedAt = if (status == WatchStatus.Watchlist) null else now,
-                    finishedAt = if (status == WatchStatus.Watched) now else null,
-                    updatedAt = now,
-                ),
+            val item = WatchItem(
+                kind = kind,
+                title = result.title,
+                year = result.year,
+                info = result.info,
+                cover = cover,
+                status = status,
+                season = if (kind == WatchKind.Series) season else 0,
+                episode = if (kind == WatchKind.Series) episode else 0,
+                startedAt = if (status == WatchStatus.Watchlist) null else now,
+                finishedAt = if (status == WatchStatus.Watched) now else null,
+                updatedAt = now,
             )
+            watchRepo.save(item)
             watchItems = watchRepo.items()
-            onDone()
+            if (status == WatchStatus.Watched) celebrate("Watched “${item.title}”")
+            onDone(item.id)
             scheduleSync()
         }
     }
 
+    fun setWatchStatus(id: String, status: WatchStatus) {
+        watchItems.firstOrNull { it.id == id }?.let { updateWatch(it.copy(status = status)) }
+    }
+
     fun updateWatch(item: WatchItem) {
         val now = System.currentTimeMillis()
+        val wasDone = watchItems.firstOrNull { it.id == item.id }?.status == WatchStatus.Watched
         // Starting an episode counter on a watchlist title means you've started watching it.
         val status = if (item.status == WatchStatus.Watchlist && (item.season > 0 || item.episode > 0)) WatchStatus.Watching else item.status
         val fixed = when (status) {
@@ -547,6 +792,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             WatchStatus.Watching -> item.copy(status = status, startedAt = item.startedAt ?: now, finishedAt = null)
             WatchStatus.Watched -> item.copy(status = status, startedAt = item.startedAt ?: now, finishedAt = item.finishedAt ?: now)
         }
+        if (!wasDone && fixed.status == WatchStatus.Watched) celebrate("Watched “${fixed.title}”")
         viewModelScope.launch {
             watchRepo.save(fixed.copy(updatedAt = now))
             watchItems = watchRepo.items()
@@ -602,16 +848,74 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun goBack() {
         if (screen.isHub()) {
-            origin = Screen.Home
-            screen = hubReturn ?: Screen.Home
+            origin = currentTab
+            screen = hubReturn ?: currentTab
             hubReturn = null
+            return
+        }
+        if (screen.isTab()) {
+            if (screen != Screen.Home) openTab(Screen.Home)
             return
         }
         screen = origin
     }
 
+    /** Bottom-bar destinations; they stay on screen as the place everything else returns to. */
+    fun openTab(target: Screen) {
+        currentTab = target
+        origin = target
+        hubReturn = null
+        if (target == Screen.Library) viewModelScope.launch { albumTotal = repo.photoTotal() }
+        if (target == Screen.Journal) {
+            showMonth(calendarMonth)
+            selectDay(calendarSelected)
+        }
+        screen = target
+    }
+
+    // ---- Quick add ----
+
+    fun openQuickAdd(mood: Mood? = null) {
+        quickAddMood = mood
+        quickAddOpen = true
+    }
+
+    fun closeQuickAdd() {
+        quickAddOpen = false
+    }
+
+    fun saveQuickEntry(mood: Mood?, tags: List<String>, note: String, links: List<String>) {
+        quickAddOpen = false
+        val entry = DiaryEntry(mood = mood, tags = tags, body = note.trim(), links = links)
+        viewModelScope.launch {
+            repo.save(entry)
+            afterChange()
+            showEntrySplash(0)
+            scheduleSync()
+        }
+    }
+
+    /** "Open full note": the page editor, started with whatever was already picked and typed. */
+    fun quickToEditor(mood: Mood?, tags: List<String>, note: String, links: List<String>) {
+        quickAddOpen = false
+        openNew(prefill = DiaryEntry(mood = mood, tags = tags, body = note, links = links))
+    }
+
+    /** Attach or detach library items on a saved page. */
+    fun updateLinks(entry: DiaryEntry, links: List<String>) {
+        val updated = entry.copy(links = links, updatedAt = System.currentTimeMillis())
+        detailEntry = updated
+        viewModelScope.launch {
+            repo.save(updated)
+            afterChange()
+            scheduleSync()
+        }
+    }
+
+    fun updateActivityGroups(groups: List<ActivityGroup>) = settings.updateActivityGroups(groups)
+
     fun openHub(target: Screen, from: Screen? = null) {
-        origin = Screen.Home
+        origin = currentTab
         hubReturn = from
         when (target) {
             Screen.Calendar -> {
@@ -630,14 +934,20 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             Screen.Books -> viewModelScope.launch { books = booksRepo.books() }
             Screen.Games -> viewModelScope.launch { games = gamesRepo.games() }
             Screen.Watch -> viewModelScope.launch { watchItems = watchRepo.items() }
+            Screen.Profile, Screen.LevelPath -> viewModelScope.launch { refreshProgress() }
             else -> Unit
         }
         screen = target
     }
 
-    fun openNew(date: LocalDate = LocalDate.now(), from: Screen = Screen.Home) {
+    fun openNew(date: LocalDate = LocalDate.now(), from: Screen = currentTab, prefill: DiaryEntry? = null) {
+        // No back-dating: a new page can only be for today or a coming day.
+        if (date.isBefore(LocalDate.now())) {
+            Toast.makeText(getApplication(), "Past days can't be added to. Write on today's page instead.", Toast.LENGTH_SHORT).show()
+            return
+        }
         origin = from
-        screen = Screen.Editor(DiaryEntry(dateEpochDay = date.toEpochDay()), isNew = true)
+        screen = Screen.Editor((prefill ?: DiaryEntry()).copy(dateEpochDay = date.toEpochDay()), isNew = true)
     }
 
     fun openDay(date: LocalDate) {
@@ -647,7 +957,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun openDetail(id: String, from: Screen = Screen.Home) {
+    fun openDetail(id: String, from: Screen = currentTab) {
         viewModelScope.launch {
             val entry = repo.getEntry(id) ?: return@launch
             origin = from
@@ -702,6 +1012,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             repo.save(updated)
             repo.deleteImages(orphans)
             afterChange()
+            if (isNew) showEntrySplash(updated.images.size)
             scheduleSync()
         }
     }

@@ -1,24 +1,22 @@
 package com.amoldalwai.diary.ui
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.Icon
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,197 +31,122 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.BarChart
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.platform.LocalContext
+import java.io.File
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amoldalwai.diary.data.DiaryEntry
-import com.amoldalwai.diary.data.HomeStats
-import kotlinx.coroutines.delay
-import java.io.File
+import com.amoldalwai.diary.data.LevelInfo
+import com.amoldalwai.diary.data.Mood
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
 import java.util.Locale
 
+/** The calm landing page: a greeting, an optional mood tap, today's habits, one memory, and the latest pages. */
 @Composable
 fun HomeScreen(
-    entries: List<DiaryEntry>,
+    recent: List<DiaryEntry>,
     loading: Boolean,
-    loadingMore: Boolean,
-    hasMore: Boolean,
-    stats: HomeStats,
-    weekDays: Set<Long>,
     onThisDay: List<DiaryEntry>,
-    imageFile: (String) -> File,
-    onNewEntry: () -> Unit,
     onOpenEntry: (DiaryEntry) -> Unit,
-    onDayClick: (LocalDate) -> Unit,
-    onLoadMore: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenCalendar: () -> Unit,
-    onOpenInsights: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenAlbum: () -> Unit,
+    onSeeAll: () -> Unit,
+    onMood: (Mood) -> Unit,
     habitUi: HabitUi,
-    booksEnabled: Boolean,
-    onOpenBooks: () -> Unit,
-    gamesEnabled: Boolean,
-    onOpenGames: () -> Unit,
-    watchEnabled: Boolean,
-    onOpenWatch: () -> Unit,
+    profileEmoji: String,
+    profilePhoto: File?,
+    heroImage: File?,
+    heroLoading: Boolean,
+    onRefreshHero: () -> Unit,
+    imageFile: (String) -> File,
+    level: LevelInfo,
+    onProfile: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
-
     val today = remember { LocalDate.now() }
-    val listState = rememberLazyListState()
-    val animatedIds = remember { HashSet<String>() }
 
-    val nearEnd by remember {
-        derivedStateOf {
-            val info = listState.layoutInfo
-            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
-            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
-        }
-    }
-    LaunchedEffect(nearEnd, entries.size, hasMore, loading) {
-        if (nearEnd && hasMore && !loading) onLoadMore()
-    }
-
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(colors.background, colors.surfaceVariant)))) {
+    Box(Modifier.fillMaxSize().background(colors.background)) {
         FloatingBlobs()
-
         LazyColumn(
-            state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = 20.dp,
                 end = 20.dp,
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 20.dp,
-                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 120.dp,
+                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 24.dp,
+                bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 130.dp,
             ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item(key = "header") {
-                Header(onOpenSearch, onOpenCalendar, onOpenInsights, onOpenSettings, Modifier.staggeredEntrance(0))
-            }
-            item(key = "stats") {
-                Row(
-                    Modifier.fillMaxWidth().staggeredEntrance(1),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    StatCard("📖", stats.total, "Entries", Modifier.weight(1f))
-                    StatCard("🔥", stats.streak, "Day streak", Modifier.weight(1f))
-                    StatCard("🌙", stats.thisMonth, "This month", Modifier.weight(1f))
-                }
-            }
-            item(key = "week") { WeekStrip(today, weekDays, onDayClick, Modifier.staggeredEntrance(2)) }
+            item(key = "greeting") { Greeting(profileEmoji, profilePhoto, level, onProfile, heroImage, heroLoading, onRefreshHero, Modifier.staggeredEntrance(0)) }
+            item(key = "mood") { MoodCard(onMood, Modifier.staggeredEntrance(1)) }
             if (habitUi.habits.isNotEmpty()) {
-                item(key = "habits") { TodayHabitsCard(habitUi, today, Modifier.staggeredEntrance(3)) }
+                item(key = "habits") { TodayHabitsCard(habitUi, today, Modifier.staggeredEntrance(2)) }
             }
             if (onThisDay.isNotEmpty()) {
                 item(key = "onthisday") { OnThisDayCard(onThisDay, onOpenEntry, Modifier.staggeredEntrance(3)) }
             }
-            item(key = "title") {
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f).padding(top = 6.dp)) {
+            item(key = "recent") {
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Recent", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = colors.onBackground, modifier = Modifier.weight(1f))
+                    if (recent.isNotEmpty()) {
                         Text(
-                            "Your memories",
-                            style = MaterialTheme.typography.headlineSmall,
+                            "See all",
+                            modifier = Modifier.bouncyClick(onSeeAll).padding(horizontal = 4.dp, vertical = 6.dp),
+                            color = colors.primary,
                             fontWeight = FontWeight.SemiBold,
-                            color = colors.onBackground,
+                            fontSize = 14.sp,
                         )
-                        Text(
-                            "${stats.total} ${if (stats.total == 1) "page" else "pages"} so far",
-                            fontSize = 13.sp,
-                            color = colors.onSurfaceVariant,
-                        )
-                        HomeShortcuts(booksEnabled, gamesEnabled, watchEnabled, onOpenAlbum, onOpenBooks, onOpenGames, onOpenWatch)
                     }
-                    Ribbon(Modifier.padding(end = 18.dp))
                 }
             }
-
-            if (loading) {
-                items(3) { ShimmerCard() }
-            } else if (entries.isEmpty()) {
-                item(key = "empty") { EmptyState() }
-            }
-
-            itemsIndexed(entries, key = { _, e -> e.id }) { index, entry ->
-                val alreadyShown = remember { animatedIds.contains(entry.id) }
-                animatedIds.add(entry.id)
-                EntryCard(
-                    entry = entry,
-                    imageFile = imageFile,
-                    onClick = { onOpenEntry(entry) },
-                    modifier = Modifier.animateItem().paperDrop(index, skip = alreadyShown),
-                )
-            }
-
-            if (loadingMore) {
-                item(key = "more") { ShimmerCard() }
-            } else if (!hasMore && entries.size > 3) {
-                item(key = "end") {
-                    Text(
-                        "That's every page ✨",
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                        textAlign = TextAlign.Center,
-                        color = colors.onSurfaceVariant,
-                        fontSize = 13.sp,
-                    )
+            when {
+                loading -> items(2) { ShimmerCard() }
+                recent.isEmpty() -> item(key = "empty") { EmptyState() }
+                else -> recent.forEachIndexed { index, entry ->
+                    item(key = entry.id) { RecentRow(entry, imageFile, { onOpenEntry(entry) }, Modifier.staggeredEntrance(index + 4)) }
                 }
             }
         }
-
-        WriteFab(
-            onClick = onNewEntry,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 20.dp, bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 24.dp),
-        )
     }
 }
 
 @Composable
-private fun Header(
-    onOpenSearch: () -> Unit,
-    onOpenCalendar: () -> Unit,
-    onOpenInsights: () -> Unit,
-    onOpenSettings: () -> Unit,
+private fun Greeting(
+    profileEmoji: String,
+    profilePhoto: File?,
+    level: LevelInfo,
+    onProfile: () -> Unit,
+    heroImage: File?,
+    heroLoading: Boolean,
+    onRefreshHero: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = MaterialTheme.colorScheme
     val hour = remember { LocalTime.now().hour }
     val greeting = when {
         hour < 5 -> "Late night thoughts"
@@ -231,141 +154,131 @@ private fun Header(
         hour < 17 -> "Good afternoon"
         else -> "Good evening"
     }
-    val date = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())).uppercase()
-    }
-    Column(modifier) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            LogoMark(Modifier.size(40.dp))
-            Spacer(Modifier.width(10.dp))
-            Text(
-                "Diary",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
+    val date = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())) }
+    if (heroImage != null) {
+        val shape = RoundedCornerShape(30.dp)
+        Box(modifier.fillMaxWidth().height(224.dp).clip(shape)) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current).data(heroImage).crossfade(600).build(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
             )
-            Spacer(Modifier.weight(1f))
-            RoundIconButton(Icons.Rounded.Search, "Search", onOpenSearch)
-            Spacer(Modifier.width(6.dp))
-            RoundIconButton(Icons.Rounded.CalendarMonth, "Calendar", onOpenCalendar)
-            Spacer(Modifier.width(6.dp))
-            RoundIconButton(Icons.Rounded.BarChart, "Insights", onOpenInsights)
-            Spacer(Modifier.width(6.dp))
-            RoundIconButton(Icons.Rounded.Settings, "Settings", onOpenSettings)
-        }
-        Spacer(Modifier.height(22.dp))
-        Text(
-            date,
-            style = MaterialTheme.typography.labelLarge,
-            letterSpacing = 2.sp,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            greeting,
-            style = MaterialTheme.typography.displaySmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "What's worth remembering today?",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun StatCard(emoji: String, value: Int, label: String, modifier: Modifier = Modifier) {
-    var target by remember { mutableIntStateOf(0) }
-    LaunchedEffect(value) { target = value }
-    val shown by animateIntAsState(target, tween(900, easing = FastOutSlowInEasing), label = "count")
-    Column(
-        modifier
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.75f))
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)), RoundedCornerShape(22.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-    ) {
-        Text(emoji, fontSize = 20.sp)
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "$shown",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun WeekStrip(
-    today: LocalDate,
-    daysWithEntries: Set<Long>,
-    onDayClick: (LocalDate) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = MaterialTheme.colorScheme
-    Row(
-        modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(26.dp))
-            .background(colors.surface.copy(alpha = 0.75f))
-            .border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.4f)), RoundedCornerShape(26.dp))
-            .padding(horizontal = 8.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        for (offset in 6 downTo 0) {
-            val date = today.minusDays(offset.toLong())
-            val hasEntry = date.toEpochDay() in daysWithEntries
-            val isToday = offset == 0
-            val pop = remember { Animatable(0f) }
-            LaunchedEffect(Unit) {
-                delay(300L + (6 - offset) * 60L)
-                pop.animateTo(1f, spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow))
+            // Soft shade at the top for the avatar and a deeper one at the bottom for the words, whatever the photo is.
+            Box(
+                Modifier.fillMaxSize().background(
+                    Brush.verticalGradient(0f to Color(0x40000000), 0.4f to Color.Transparent, 1f to Color(0xC0000000)),
+                ),
+            )
+            Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 20.dp)) {
+                Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                Spacer(Modifier.height(4.dp))
+                Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White)
             }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .graphicsLayer {
-                        scaleX = pop.value
-                        scaleY = pop.value
-                        alpha = pop.value.coerceIn(0f, 1f)
-                    }
-                    .bouncyClick { onDayClick(date) },
-                horizontalAlignment = Alignment.CenterHorizontally,
+            val spin = rememberInfiniteTransition(label = "heroSpin")
+            val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")
+            Box(
+                Modifier.align(Alignment.TopStart).padding(14.dp).size(34.dp).bouncyClick(onRefreshHero).clip(CircleShape).background(Color(0x33FFFFFF)),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    date.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceVariant,
+                Icon(
+                    Icons.Rounded.Refresh,
+                    "New photo",
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = if (heroLoading) angle else 0f },
                 )
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (hasEntry) {
-                                Brush.linearGradient(listOf(colors.primary, Color(0xFFE59A6B)))
-                            } else {
-                                Brush.linearGradient(listOf(colors.surfaceVariant, colors.surfaceVariant))
-                            },
-                        )
-                        .then(if (isToday && !hasEntry) Modifier.border(2.dp, colors.primary, CircleShape) else Modifier),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "${date.dayOfMonth}",
-                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
-                        color = if (hasEntry) colors.onPrimary else colors.onSurface,
-                        fontSize = 14.sp,
-                    )
-                }
             }
+            Column(Modifier.align(Alignment.TopEnd).padding(14.dp).bouncyClick(onProfile), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.clip(CircleShape).background(Color(0x33FFFFFF)).padding(3.dp)) { AvatarRing(profileEmoji, profilePhoto, level, 52.dp) }
+                Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+        }
+        return
+    }
+    Row(modifier, verticalAlignment = Alignment.Top) {
+        Column(Modifier.weight(1f)) {
+            Text(date, fontSize = 13.sp, color = colors.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = colors.onBackground)
+        }
+        Column(Modifier.bouncyClick(onProfile).padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            AvatarRing(profileEmoji, profilePhoto, level, 54.dp)
+            Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+/** Tapping a mood opens Quick Add with it already chosen; ignoring the card is fine. */
+@Composable
+private fun MoodCard(onMood: (Mood) -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(26.dp)
+    Column(
+        modifier.fillMaxWidth().clip(shape).background(colors.surface).border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.5f)), shape).padding(vertical = 16.dp),
+    ) {
+        Text("How are you feeling?", fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = colors.onSurface, modifier = Modifier.padding(horizontal = 18.dp))
+        Text("Optional. Or tap + to write about your day.", fontSize = 12.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp))
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Mood.entries.forEach { mood ->
+                Box(
+                    Modifier.size(50.dp).bouncyClick { onMood(mood) }.clip(CircleShape).background(colors.primaryContainer),
+                    contentAlignment = Alignment.Center,
+                ) { Text(mood.emoji, fontSize = 27.sp) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecentRow(entry: DiaryEntry, imageFile: (String) -> File, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(22.dp)
+    val title = entry.title.ifBlank { entry.body.trim().lineSequence().firstOrNull().orEmpty() }.ifBlank { "Untitled day" }
+    val meta = buildList {
+        add((entry.mood?.let { "${it.emoji} " } ?: "") + entry.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())))
+        if (entry.images.isNotEmpty()) add("${entry.images.size} ${if (entry.images.size == 1) "photo" else "photos"}")
+        if (entry.tags.isNotEmpty()) add(entry.tags.take(2).joinToString(", "))
+    }.joinToString(" · ")
+    Row(
+        modifier.fillMaxWidth().bouncyClick(onClick).clip(shape).background(colors.surface).border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.5f)), shape).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (entry.images.isNotEmpty()) {
+            PhotoStack(entry.images, imageFile)
+        } else {
+            Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
+                Text(entry.mood?.emoji ?: "📝", fontSize = 23.sp)
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = colors.onSurface)
+            Text(meta, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = colors.onSurfaceVariant)
+        }
+    }
+}
+
+/** Up to three of the page's photos, small and overlapping like a handful of prints. */
+@Composable
+private fun PhotoStack(names: List<String>, imageFile: (String) -> File) {
+    val shown = names.take(3)
+    val tilts = listOf(-4f, 6f, -9f)
+    val shape = RoundedCornerShape(9.dp)
+    Box(Modifier.width(44.dp + 10.dp * (shown.size - 1)).height(52.dp), contentAlignment = Alignment.CenterStart) {
+        for (k in shown.indices.reversed()) {
+            AsyncImage(
+                model = imageFile(shown[k]),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .offset(x = 10.dp * k)
+                    .size(44.dp)
+                    .graphicsLayer { rotationZ = tilts[k] }
+                    .shadow(3.dp, shape)
+                    .clip(shape)
+                    .border(2.dp, Color.White, shape),
+            )
         }
     }
 }
@@ -375,66 +288,21 @@ private fun EmptyState() {
     val transition = rememberInfiniteTransition(label = "float")
     val dy by transition.animateFloat(
         initialValue = 0f,
-        targetValue = -12f,
+        targetValue = -10f,
         animationSpec = infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "dy",
     )
-    Column(
-        Modifier.fillMaxWidth().padding(vertical = 36.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("📖", fontSize = 64.sp, modifier = Modifier.graphicsLayer { translationY = dy.dp.toPx() })
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Your story starts here",
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+    Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("📖", fontSize = 56.sp, modifier = Modifier.graphicsLayer { translationY = dy.dp.toPx() })
+        Spacer(Modifier.height(14.dp))
+        Text("Your story starts here", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(6.dp))
         Text(
-            "Tap “Write today” to capture your first memory.",
+            "Tap + to capture your first memory.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun HomeShortcuts(
-    booksEnabled: Boolean,
-    gamesEnabled: Boolean,
-    watchEnabled: Boolean,
-    onOpenAlbum: () -> Unit,
-    onOpenBooks: () -> Unit,
-    onOpenGames: () -> Unit,
-    onOpenWatch: () -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    @Composable
-    fun Chip(label: String, onClick: () -> Unit) {
-        Text(
-            label,
-            modifier = Modifier
-                .bouncyClick(onClick)
-                .clip(CircleShape)
-                .background(colors.primaryContainer)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            color = colors.onPrimaryContainer,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-        )
-    }
-    FlowRow(
-        Modifier.padding(top = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Chip("📮 Stamp album", onOpenAlbum)
-        if (booksEnabled) Chip("📚 Books", onOpenBooks)
-        if (gamesEnabled) Chip("🎮 Games", onOpenGames)
-        if (watchEnabled) Chip("🎬 Movies & Series", onOpenWatch)
     }
 }
 
@@ -446,12 +314,7 @@ private fun TodayHabitsCard(habitUi: HabitUi, today: LocalDate, modifier: Modifi
     val doneCount = habitUi.habits.count { it.id in done }
     val shape = RoundedCornerShape(26.dp)
     Column(
-        modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(colors.surface.copy(alpha = 0.78f))
-            .border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.4f)), shape)
-            .padding(16.dp),
+        modifier.fillMaxWidth().clip(shape).background(colors.surface).border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.5f)), shape).padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Today's habits", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = colors.onSurface, modifier = Modifier.weight(1f))
@@ -482,26 +345,15 @@ private fun OnThisDayCard(entries: List<DiaryEntry>, onOpen: (DiaryEntry) -> Uni
         modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Brush.linearGradient(listOf(colors.tertiary.copy(alpha = 0.22f), colors.primary.copy(alpha = 0.18f))))
+            .background(Brush.linearGradient(listOf(colors.tertiary.copy(alpha = 0.2f), colors.primary.copy(alpha = 0.14f))))
             .border(1.dp, colors.tertiary.copy(alpha = 0.3f), shape)
             .padding(18.dp),
     ) {
-        Text(
-            "✨ ON THIS DAY",
-            fontSize = 11.sp,
-            letterSpacing = 1.8.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = colors.onSurfaceVariant,
-        )
-        entries.take(3).forEach { entry ->
+        Text("ON THIS DAY", fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
+        entries.take(2).forEach { entry ->
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth().bouncyClick { onOpen(entry) }, verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "${entry.date.year}",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.onSurface,
-                )
+                Text("${entry.date.year}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = colors.onSurface)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -512,53 +364,10 @@ private fun OnThisDayCard(entries: List<DiaryEntry>, onOpen: (DiaryEntry) -> Uni
                         color = colors.onSurface,
                     )
                     val years = LocalDate.now().year - entry.date.year
-                    Text(
-                        "$years ${if (years == 1) "year" else "years"} ago",
-                        fontSize = 12.sp,
-                        color = colors.onSurfaceVariant,
-                    )
+                    Text("$years ${if (years == 1) "year" else "years"} ago", fontSize = 12.sp, color = colors.onSurfaceVariant)
                 }
                 entry.mood?.let { Text(it.emoji, fontSize = 20.sp) }
             }
         }
-    }
-}
-
-@Composable
-private fun WriteFab(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
-    var shown by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        delay(500)
-        shown = true
-    }
-    val scale by animateFloatAsState(
-        targetValue = if (shown) 1f else 0f,
-        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow),
-        label = "fabScale",
-    )
-    val transition = rememberInfiniteTransition(label = "fabFloat")
-    val dy by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = -4f,
-        animationSpec = infiniteRepeatable(tween(1800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "fabDy",
-    )
-    Row(
-        modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-                translationY = dy.dp.toPx()
-            }
-            .bouncyClick(onClick)
-            .shadow(14.dp, CircleShape, ambientColor = colors.primary, spotColor = colors.primary)
-            .background(Brush.horizontalGradient(listOf(colors.primary, Color(0xFFE59A6B))), CircleShape)
-            .padding(horizontal = 22.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Rounded.Edit, contentDescription = null, tint = colors.onPrimary, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(10.dp))
-        Text("Write today", color = colors.onPrimary, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
     }
 }

@@ -77,17 +77,6 @@ class HabitUi(
     val toggle: (habitId: String, date: LocalDate) -> Boolean,
 )
 
-/** What journal pages need from the book shelf. */
-class BooksUi(
-    val enabled: Boolean,
-    val reading: List<Book>,
-    val pageOn: (Book, LocalDate) -> Int,
-    val loadLogs: (LocalDate) -> Unit,
-    val setPage: (Book, LocalDate, Int, (Book) -> Unit) -> Unit,
-    val addBook: (BookResult, BookStatus, Int?, Int, () -> Unit) -> Unit,
-    val cover: (String) -> File,
-)
-
 /** Short chimes synthesised in memory, so no sound file is bundled. */
 object Chime {
     private const val RATE = 22050
@@ -120,6 +109,13 @@ object Chime {
     fun play() = play(tick)
 
     fun celebrate() = play(fanfare)
+
+    // A bright rising four-note flourish for a saved journal entry.
+    private val entryDone: ShortArray by lazy {
+        synth(listOf(659.25 to 0.0, 830.6 to 0.09, 987.77 to 0.18, 1318.5 to 0.3, 1975.5 to 0.3), 1.5, 4.2, 3.0)
+    }
+
+    fun entrySaved() = play(entryDone)
 
     private fun play(pcm: ShortArray) {
         runCatching {

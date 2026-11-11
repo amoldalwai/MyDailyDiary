@@ -130,7 +130,9 @@ data class DiaryEntry(
     val images: List<String> = emptyList(),
     val tags: List<String> = emptyList(),
     val spans: List<TextSpan> = emptyList(),
+    /** Library items attached to this page, as `B:<id>` (book), `G:<id>` (game) or `W:<id>` (movie/series). */
+    val links: List<String> = emptyList(),
 ) {
-    val isBlank: Boolean get() = title.isBlank() && body.isBlank() && images.isEmpty()
+    val isBlank: Boolean get() = title.isBlank() && body.isBlank() && images.isEmpty() && links.isEmpty()
     val date: LocalDate get() = LocalDate.ofEpochDay(dateEpochDay)
 }

@@ -69,6 +69,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -133,7 +134,7 @@ fun EditorScreen(
     onPickImages: (List<Uri>, (List<String>) -> Unit) -> Unit,
     onAddDrawing: (Bitmap, (String) -> Unit) -> Unit,
     habitUi: HabitUi,
-    booksUi: BooksUi,
+    mediaUi: MediaUi,
     onSave: (DiaryEntry) -> Unit,
     onDiscard: () -> Unit,
 ) {
@@ -148,7 +149,6 @@ fun EditorScreen(
     var showDrawing by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
-    var showBookSearch by remember { mutableStateOf(false) }
 
     val bg = PageStyles.background(entry.style.backgroundId)
     val font = PageStyles.font(entry.style.fontId)
@@ -321,12 +321,6 @@ fun EditorScreen(
                     )
                     Spacer(Modifier.height(18.dp))
                 }
-                if (booksUi.enabled) {
-                    SectionLabel("Books", bg.inkSoft)
-                    Spacer(Modifier.height(8.dp))
-                    BooksPanel(booksUi, entry.date, bg.ink) { showBookSearch = true }
-                    Spacer(Modifier.height(18.dp))
-                }
 
                 BasicTextField(
                     value = entry.title,
@@ -484,6 +478,19 @@ fun EditorScreen(
                     }
                     AddPhotoTile(importing = importing, ink = bg.ink) { pickPhotos() }
                 }
+                if (mediaUi.anyEnabled) {
+                    Spacer(Modifier.height(10.dp))
+                    SectionLabel("Books · Movies · Games", bg.inkSoft)
+                    Spacer(Modifier.height(10.dp))
+                    EntryMediaSection(
+                        links = entry.links,
+                        onLinks = { entry = entry.copy(links = it) },
+                        date = entry.date,
+                        ui = mediaUi,
+                        ink = bg.ink,
+                        onInk = bg.onInk,
+                    )
+                }
                 Spacer(Modifier.height(24.dp))
             }
 
@@ -510,7 +517,16 @@ fun EditorScreen(
     }
 
     if (showDatePicker) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = entry.dateEpochDay * MILLIS_PER_DAY)
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = entry.dateEpochDay * MILLIS_PER_DAY,
+            selectableDates = object : SelectableDates {
+                // No back-dating: today and later, or the day this page already has.
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val day = Math.floorDiv(utcTimeMillis, MILLIS_PER_DAY)
+                    return day >= java.time.LocalDate.now().toEpochDay() || day == original.dateEpochDay
+                }
+            },
+        )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -556,13 +572,6 @@ fun EditorScreen(
                 }
             }
         }
-    }
-
-    if (showBookSearch) {
-        BookSearchSheet(
-            onDismiss = { showBookSearch = false },
-            onAdd = { result, status, total, current -> booksUi.addBook(result, status, total, current) {} },
-        )
     }
 
     if (showDrawing) {

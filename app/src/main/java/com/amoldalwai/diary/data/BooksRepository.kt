@@ -71,20 +71,8 @@ class BooksRepository(context: Context) {
         updated
     }
 
-    /** Stores a downloaded cover, shrunk to about 500 px wide, and returns its file name. */
-    suspend fun saveCover(bytes: ByteArray): String? = withContext(Dispatchers.IO) {
-        runCatching {
-            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            if (bounds.outWidth <= 0) return@runCatching null
-            val options = BitmapFactory.Options().apply { inSampleSize = max(1, bounds.outWidth / 500) }
-            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options) ?: return@runCatching null
-            val name = "book_${UUID.randomUUID()}.jpg"
-            imageFile(name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 80, it) }
-            bitmap.recycle()
-            name
-        }.getOrNull()
-    }
+    /** Stores a downloaded cover as a small poster and returns its file name. */
+    suspend fun saveCover(bytes: ByteArray): String? = withContext(Dispatchers.IO) { CoverStore.save(imagesDir, "book_", bytes) }
 
     // ---- Sync ----
 

@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.amoldalwai.diary.util.RichText
 
-class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 7) {
+class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 8) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -28,7 +28,8 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
                 lines TEXT NOT NULL DEFAULT 'ruled',
                 line_color TEXT NOT NULL DEFAULT 'auto',
                 margin INTEGER NOT NULL DEFAULT 1,
-                spans TEXT NOT NULL DEFAULT '[]'
+                spans TEXT NOT NULL DEFAULT '[]',
+                links TEXT NOT NULL DEFAULT '[]'
             )
             """.trimIndent(),
         )
@@ -186,6 +187,7 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         if (oldVersion < 5) createGames(db)
         if (oldVersion < 6) addReviewColumns(db)
         if (oldVersion < 7) createWatch(db)
+        if (oldVersion < 8) db.execSQL("ALTER TABLE entries ADD COLUMN links TEXT NOT NULL DEFAULT '[]'")
     }
 
     /** Version 1 stored bold/italic as `**`/`*` markers inside the body. */

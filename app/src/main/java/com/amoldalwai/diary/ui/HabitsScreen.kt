@@ -1,6 +1,16 @@
 package com.amoldalwai.diary.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextOverflow
+import android.view.HapticFeedbackConstants
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -66,12 +76,14 @@ fun HabitsScreen(
     onAdd: (name: String, emoji: String) -> Unit,
     onUpdate: (Habit, name: String, emoji: String) -> Unit,
     onDelete: (Habit) -> Unit,
+    onToggleToday: (habitId: String, done: Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
     var editing by remember { mutableStateOf<Habit?>(null) }
     var adding by remember { mutableStateOf(false) }
+    var weekTab by rememberSaveable { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(colors.background, colors.surfaceVariant)))) {
         FloatingBlobs()
@@ -113,7 +125,12 @@ fun HabitsScreen(
                     }
                 }
             } else {
-                LazyColumn(
+                HabitTabs(weekTab) { weekTab = it }
+                if (weekTab) {
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 32.dp)) {
+                        WeekTable(stats, onToggleToday)
+                    }
+                } else LazyColumn(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -149,6 +166,126 @@ fun HabitsScreen(
                 editing = null
             },
         )
+    }
+}
+
+@Composable
+private fun HabitTabs(weekTab: Boolean, onChange: (Boolean) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.padding(horizontal = 20.dp, vertical = 8.dp).fillMaxWidth().clip(CircleShape).background(colors.surfaceVariant).padding(4.dp),
+    ) {
+        listOf("Streaks" to false, "This week" to true).forEach { (label, week) ->
+            val on = week == weekTab
+            Text(
+                label,
+                modifier = Modifier
+                    .weight(1f)
+                    .bouncyClick { onChange(week) }
+                    .clip(RoundedCornerShape(50))
+                    .background(if (on) colors.surface else Color.Transparent)
+                    .padding(vertical = 10.dp),
+                textAlign = TextAlign.Center,
+                fontSize = 14.sp,
+                fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                color = if (on) colors.primary else colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Habits as rows and the last seven days as columns; only today can be ticked here, past days are a record. */
+@Composable
+private fun WeekTable(stats: List<HabitStat>, onToggleToday: (String, Boolean) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val view = LocalView.current
+    val today = remember { LocalDate.now() }
+    val days = remember { (6 downTo 0).map { today.minusDays(it.toLong()) } }
+    val weeks = remember(stats) { stats.map { it.last28.takeLast(7) } }
+    val ticks = weeks.sumOf { w -> w.count { it } }
+    val possible = stats.size * 7
+    val shape = RoundedCornerShape(24.dp)
+
+    Column(
+        Modifier.fillMaxWidth().clip(shape).background(colors.surface.copy(alpha = 0.85f)).border(1.dp, colors.outline.copy(alpha = 0.4f), shape).padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Last 7 days", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = colors.onSurface, modifier = Modifier.weight(1f))
+            Text("$ticks of $possible", fontSize = 13.sp, color = colors.onSurfaceVariant)
+        }
+        Spacer(Modifier.height(8.dp))
+        ProgressBar(if (possible == 0) 0f else ticks.toFloat() / possible, colors.outline.copy(alpha = 0.3f), colors.primary, Modifier.fillMaxWidth())
+        Spacer(Modifier.height(14.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(Modifier.width(NAME_COLUMN))
+            days.forEach { day ->
+                val isToday = day == today
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(day.dayOfWeek.getDisplayName(TextStyle.NARROW, Locale.getDefault()), fontSize = 10.sp, color = colors.onSurfaceVariant)
+                    Text(
+                        "${day.dayOfMonth}",
+                        modifier = Modifier.clip(CircleShape).background(if (isToday) colors.primary else Color.Transparent).padding(horizontal = 6.dp, vertical = 2.dp),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isToday) colors.onPrimary else colors.onSurface,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        stats.forEachIndexed { row, stat ->
+            Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outline.copy(alpha = 0.25f)))
+            Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.width(NAME_COLUMN).padding(end = 6.dp)) {
+                    Text("${stat.habit.emoji} ${stat.habit.name}", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colors.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    if (stat.currentStreak > 0) Text("🔥 ${stat.currentStreak}", fontSize = 11.sp, color = colors.onSurfaceVariant)
+                }
+                weeks[row].forEachIndexed { i, done ->
+                    val isToday = i == 6
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                        DayDot(done, isToday) {
+                            if (!done) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                            onToggleToday(stat.habit.id, !done)
+                        }
+                    }
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outline.copy(alpha = 0.25f)))
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Done", modifier = Modifier.width(NAME_COLUMN), fontSize = 11.sp, color = colors.onSurfaceVariant)
+            for (i in 0 until 7) {
+                val count = weeks.count { it[i] }
+                val all = stats.isNotEmpty() && count == stats.size
+                Text(
+                    "$count/${stats.size}",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontSize = 10.sp,
+                    fontWeight = if (all) FontWeight.Bold else FontWeight.Normal,
+                    color = if (all) colors.primary else colors.onSurfaceVariant,
+                )
+            }
+        }
+    }
+    Spacer(Modifier.height(10.dp))
+    Text("Tap today's circle to tick a habit. Earlier days are a record and can't be changed.", fontSize = 12.sp, color = colors.onSurfaceVariant)
+}
+
+private val NAME_COLUMN = 84.dp
+
+@Composable
+private fun DayDot(done: Boolean, isToday: Boolean, onToggleToday: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val base = Modifier.size(24.dp).clip(CircleShape)
+    val styled = when {
+        done -> base.background(colors.primary)
+        isToday -> base.border(2.dp, colors.primary, CircleShape)
+        else -> base.border(1.5.dp, colors.outline.copy(alpha = 0.55f), CircleShape)
+    }
+    Box(if (isToday) styled.clickable(onClick = onToggleToday) else styled, contentAlignment = Alignment.Center) {
+        if (done) Icon(Icons.Rounded.Check, null, tint = colors.onPrimary, modifier = Modifier.size(15.dp))
     }
 }
 

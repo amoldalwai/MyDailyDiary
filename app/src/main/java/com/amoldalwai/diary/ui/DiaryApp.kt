@@ -78,6 +78,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onMood = { vm.openQuickAdd(it) },
                     habitUi = habitUi,
                     profileEmoji = vm.settings.profileEmoji,
+                    profileName = vm.settings.profileName,
                     profilePhoto = profilePhoto,
                     heroImage = vm.heroFile,
                     heroLoading = vm.heroLoading,

@@ -307,7 +307,7 @@ fun ProfileScreen(
                     }
                 }
                 Spacer(Modifier.height(14.dp))
-                OutlinedTextField(draftName, { draftName = it.take(24) }, singleLine = true, label = { Text("Name") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(draftName, { draftName = it.take(24) }, singleLine = true, label = { Text("Name") }, supportingText = { Text("Greetings use just your first name") }, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
                 OutlinedTextField(draftBio, { draftBio = it.take(60) }, singleLine = true, label = { Text("Bio") }, placeholder = { Text("A line about you") }, modifier = Modifier.fillMaxWidth())
 

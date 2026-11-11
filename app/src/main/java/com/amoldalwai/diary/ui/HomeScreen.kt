@@ -60,10 +60,13 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amoldalwai.diary.data.DiaryEntry
+import com.amoldalwai.diary.data.Greetings
 import com.amoldalwai.diary.data.LevelInfo
 import com.amoldalwai.diary.data.Mood
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.delay
 import java.time.LocalDate
-import java.time.LocalTime
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -78,6 +81,7 @@ fun HomeScreen(
     onMood: (Mood) -> Unit,
     habitUi: HabitUi,
     profileEmoji: String,
+    profileName: String,
     profilePhoto: File?,
     heroImage: File?,
     heroLoading: Boolean,
@@ -102,7 +106,7 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item(key = "greeting") { Greeting(profileEmoji, profilePhoto, level, onProfile, heroImage, heroLoading, onRefreshHero, Modifier.tourTarget("home_hero").staggeredEntrance(0)) }
+            item(key = "greeting") { Greeting(profileEmoji, profileName, profilePhoto, level, onProfile, heroImage, heroLoading, onRefreshHero, Modifier.tourTarget("home_hero").staggeredEntrance(0)) }
             item(key = "mood") { MoodCard(onMood, Modifier.tourTarget("mood_card").staggeredEntrance(1)) }
             if (habitUi.habits.isNotEmpty()) {
                 item(key = "habits") { TodayHabitsCard(habitUi, today, Modifier.staggeredEntrance(2)) }
@@ -138,6 +142,7 @@ fun HomeScreen(
 @Composable
 private fun Greeting(
     profileEmoji: String,
+    profileName: String,
     profilePhoto: File?,
     level: LevelInfo,
     onProfile: () -> Unit,
@@ -147,13 +152,14 @@ private fun Greeting(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
-    val hour = remember { LocalTime.now().hour }
-    val greeting = when {
-        hour < 5 -> "Late night thoughts"
-        hour < 12 -> "Good morning"
-        hour < 17 -> "Good afternoon"
-        else -> "Good evening"
+    // Re-read the clock every minute so the greeting follows the day while the app stays open.
+    val now by produceState(LocalDateTime.now()) {
+        while (true) {
+            delay(60_000)
+            value = LocalDateTime.now()
+        }
     }
+    val greeting = remember(now.hour, now.toLocalDate(), profileName) { Greetings.greeting(now.hour, now.toLocalDate(), profileName) }
     val date = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())) }
     if (heroImage != null) {
         val shape = RoundedCornerShape(30.dp)
@@ -173,7 +179,7 @@ private fun Greeting(
             Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 20.dp)) {
                 Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
                 Spacer(Modifier.height(4.dp))
-                Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             val spin = rememberInfiniteTransition(label = "heroSpin")
             val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")
@@ -199,7 +205,7 @@ private fun Greeting(
         Column(Modifier.weight(1f)) {
             Text(date, fontSize = 13.sp, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
-            Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = colors.onBackground)
+            Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Column(Modifier.tourTarget("home_profile").bouncyClick(onProfile).padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             AvatarRing(profileEmoji, profilePhoto, level, 54.dp)

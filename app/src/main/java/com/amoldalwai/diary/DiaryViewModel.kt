@@ -225,6 +225,32 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var heroLoading by mutableStateOf(false)
         private set
+
+    // First-run slides, and the step of the spotlight tour (null when it isn't running).
+    var showWelcome by mutableStateOf(!settings.onboardingDone)
+        private set
+    var tourStep by mutableStateOf<Int?>(null)
+        private set
+
+    fun openWelcome() {
+        showWelcome = true
+    }
+
+    fun finishWelcome(startTour: Boolean) {
+        settings.markOnboardingDone()
+        showWelcome = false
+        if (startTour) startTour()
+    }
+
+    fun startTour() {
+        quickAddOpen = false
+        openTab(Screen.Home)
+        tourStep = 0
+    }
+
+    fun goToTourStep(step: Int?) {
+        tourStep = step
+    }
     private var celebrationToken = 0
     private var progressReady = false
 

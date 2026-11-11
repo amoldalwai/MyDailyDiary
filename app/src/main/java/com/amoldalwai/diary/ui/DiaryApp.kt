@@ -263,6 +263,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onOpenBooks = { vm.openHub(Screen.Books, from = Screen.Settings) },
                     onOpenGames = { vm.openHub(Screen.Games, from = Screen.Settings) },
                     onOpenWatch = { vm.openHub(Screen.Watch, from = Screen.Settings) },
+                    onStartTour = vm::startTour,
+                    onShowWelcome = vm::openWelcome,
                 )
 
                 is Screen.Detail -> PageTurn {
@@ -326,6 +328,25 @@ fun DiaryApp(vm: DiaryViewModel) {
             if (vm.levelUp == null && vm.entrySplash == null) AwardBanner(vm.awardBanner, vm::dismissAwardBanner)
             EntrySavedSplash(vm.entrySplash, vm.settings.habitSound, vm::dismissEntrySplash)
             if (vm.entrySplash == null) LevelUpOverlay(vm.levelUp, vm.settings.habitSound, vm::dismissLevelUp)
+            vm.tourStep?.let { step ->
+                AppTourOverlay(
+                    step = step,
+                    onStep = vm::goToTourStep,
+                    onStop = { vm.goToTourStep(null) },
+                    onTry = { action ->
+                        vm.goToTourStep(null)
+                        when (action) {
+                            TourAction.AddEntry -> vm.openQuickAdd()
+                            TourAction.AddMovie -> vm.openHub(Screen.Watch)
+                            TourAction.AddHabit -> vm.openHub(Screen.Habits)
+                        }
+                    },
+                )
+            }
+            if (vm.showWelcome) {
+                BackHandler { vm.finishWelcome(false) }
+                WelcomeScreen(onFinish = vm::finishWelcome)
+            }
         }
 
         AnimatedVisibility(

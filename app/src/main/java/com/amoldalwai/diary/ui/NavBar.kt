@@ -77,15 +77,16 @@ fun FloatingNavBar(current: Screen, onTab: (Screen) -> Unit, onAdd: () -> Unit, 
                 .border(1.dp, colors.outline.copy(alpha = 0.6f), shape),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            tabs.take(2).forEach { NavItem(it, current == it.screen, Modifier.weight(1f)) { onTab(it.screen) } }
+            tabs.take(2).forEach { NavItem(it, current == it.screen, Modifier.weight(1f).tourTarget("nav_${it.label.lowercase()}")) { onTab(it.screen) } }
             Spacer(Modifier.width(72.dp))
-            tabs.drop(2).forEach { NavItem(it, current == it.screen, Modifier.weight(1f)) { onTab(it.screen) } }
+            tabs.drop(2).forEach { NavItem(it, current == it.screen, Modifier.weight(1f).tourTarget("nav_${it.label.lowercase()}")) { onTab(it.screen) } }
         }
         Box(
             Modifier
                 .align(Alignment.TopCenter)
                 .offset(y = (-14).dp)
                 .size(60.dp)
+                .tourTarget("nav_add")
                 .bouncyClick(onAdd)
                 .shadow(12.dp, CircleShape, ambientColor = colors.primary, spotColor = colors.primary)
                 .clip(CircleShape)

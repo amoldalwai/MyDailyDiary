@@ -71,6 +71,14 @@ class SettingsStore(context: Context) {
     var coversShrunk by mutableStateOf(prefs.getBoolean("coversShrunk", false))
         private set
 
+    var onboardingDone by mutableStateOf(prefs.getBoolean("onboardingDone", false))
+        private set
+
+    fun markOnboardingDone() {
+        onboardingDone = true
+        prefs.edit().putBoolean("onboardingDone", true).apply()
+    }
+
     fun markCoversShrunk() {
         coversShrunk = true
         prefs.edit().putBoolean("coversShrunk", true).apply()

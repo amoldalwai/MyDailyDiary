@@ -102,8 +102,8 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item(key = "greeting") { Greeting(profileEmoji, profilePhoto, level, onProfile, heroImage, heroLoading, onRefreshHero, Modifier.staggeredEntrance(0)) }
-            item(key = "mood") { MoodCard(onMood, Modifier.staggeredEntrance(1)) }
+            item(key = "greeting") { Greeting(profileEmoji, profilePhoto, level, onProfile, heroImage, heroLoading, onRefreshHero, Modifier.tourTarget("home_hero").staggeredEntrance(0)) }
+            item(key = "mood") { MoodCard(onMood, Modifier.tourTarget("mood_card").staggeredEntrance(1)) }
             if (habitUi.habits.isNotEmpty()) {
                 item(key = "habits") { TodayHabitsCard(habitUi, today, Modifier.staggeredEntrance(2)) }
             }
@@ -188,7 +188,7 @@ private fun Greeting(
                     modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = if (heroLoading) angle else 0f },
                 )
             }
-            Column(Modifier.align(Alignment.TopEnd).padding(14.dp).bouncyClick(onProfile), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.align(Alignment.TopEnd).padding(14.dp).tourTarget("home_profile").bouncyClick(onProfile), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.clip(CircleShape).background(Color(0x33FFFFFF)).padding(3.dp)) { AvatarRing(profileEmoji, profilePhoto, level, 52.dp) }
                 Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
@@ -201,7 +201,7 @@ private fun Greeting(
             Spacer(Modifier.height(6.dp))
             Text(greeting, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold, color = colors.onBackground)
         }
-        Column(Modifier.bouncyClick(onProfile).padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.tourTarget("home_profile").bouncyClick(onProfile).padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             AvatarRing(profileEmoji, profilePhoto, level, 54.dp)
             Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
         }

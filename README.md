@@ -69,6 +69,7 @@
 - Animated and audible moments: a splash when you save an entry, a full-screen level-up and rank-up, and award banners.
 
 ### 🎨 Personal
+- **Welcome slides** on first launch (skippable), and an **interactive tour** that spotlights each feature with Next, Back, Stop and "Try it" buttons. Replay either any time from **Settings → How to guide**.
 - 4 colour palettes (Sage, Teal, Lavender, Terracotta), light, dark or system theme.
 - A different photo at the top of Home each day (fetched when you're online, kept for offline use), with a refresh button.
 - Turn Books, Games, Movies & Series and the activity chips on or off.

@@ -99,6 +99,8 @@ fun SettingsScreen(
     onOpenBooks: () -> Unit,
     onOpenGames: () -> Unit,
     onOpenWatch: () -> Unit,
+    onStartTour: () -> Unit,
+    onShowWelcome: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
@@ -169,6 +171,12 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Spacer(Modifier.height(4.dp))
+
+                SettingsCard("How to guide", Modifier.staggeredEntrance(0)) {
+                    NavRow("Take the app tour", "Highlights each feature on screen, and you can try them as you go", onStartTour)
+                    Spacer(Modifier.height(12.dp))
+                    NavRow("Show the welcome slides", "A quick overview of everything LifeLoom does", onShowWelcome)
+                }
 
                 SettingsCard("Personalize", Modifier.staggeredEntrance(0)) {
                     NavRow(

@@ -22,7 +22,11 @@ android {
         targetSdk = 35
         versionCode = 3
         versionName = "1.2.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+
+    // Mock-data smoke tests run against this copy (own package name) so they never touch the real diary on the phone.
+    testBuildType = "mock"
 
     signingConfigs {
         if (!keystoreProps.isEmpty) {
@@ -36,6 +40,11 @@ android {
     }
 
     buildTypes {
+        create("mock") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".mock"
+            matchingFallbacks += "debug"
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -86,4 +95,9 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    add("mockImplementation", libs.androidx.compose.ui.test.manifest)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }

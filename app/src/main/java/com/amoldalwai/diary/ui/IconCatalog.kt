@@ -233,20 +233,28 @@ fun Glyph(saved: String, tint: Color, size: Dp = 20.dp, modifier: Modifier = Mod
  * The shared icon look: a thin ring with a coloured glyph, and a filled circle with a white glyph once picked or done.
  */
 @Composable
-fun GlyphCircle(saved: String, selected: Boolean, size: Dp = 52.dp, modifier: Modifier = Modifier) {
-    val colors = MaterialTheme.colorScheme
+fun GlyphCircle(
+    saved: String,
+    selected: Boolean,
+    size: Dp = 52.dp,
+    modifier: Modifier = Modifier,
+    accent: Color = MaterialTheme.colorScheme.primary,
+    onAccent: Color = MaterialTheme.colorScheme.onPrimary,
+    idleRing: Color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f),
+    idleGlyph: Color = accent,
+) {
     Box(
         modifier
             .size(size)
             .clip(CircleShape)
-            .drawBehind { if (selected) drawCircle(colors.primary) }
-            .border(1.6.dp, if (selected) colors.primary else colors.outline.copy(alpha = 0.6f), CircleShape),
+            .drawBehind { if (selected) drawCircle(accent) }
+            .border(1.6.dp, if (selected) accent else idleRing, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             IconCatalog.vectorFor(saved),
             contentDescription = null,
-            tint = if (selected) colors.onPrimary else colors.primary,
+            tint = if (selected) onAccent else idleGlyph,
             modifier = Modifier.size(size * 0.54f),
         )
     }

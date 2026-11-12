@@ -28,7 +28,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
@@ -231,27 +235,20 @@ fun HabitChips(
                 fontWeight = FontWeight.Bold,
             )
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             habits.forEach { habit ->
                 key(habit.id) {
                     val done = habit.id in doneIds
                     var burst by remember { mutableIntStateOf(0) }
-                    val fill by animateColorAsState(if (done) accent else ink.copy(alpha = 0.08f), label = "habitFill")
                     val scale by animateFloatAsState(
-                        if (done) 1.03f else 1f,
+                        if (done) 1.06f else 1f,
                         spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
                         label = "habitScale",
                     )
-                    Row(
+                    Column(
                         Modifier
-                            .graphicsLayer {
-                                scaleX = scale
-                                scaleY = scale
-                            }
-                            .confetti(burst)
-                            .clip(CircleShape)
-                            .background(fill)
-                            .clickable {
+                            .width(72.dp)
+                            .bouncyClick {
                                 if (onToggle(habit.id)) {
                                     burst++
                                     val lastOne = habits.all { it.id == habit.id || it.id in doneIds }
@@ -259,17 +256,35 @@ fun HabitChips(
                                     if (sound) if (lastOne) Chime.celebrate() else Chime.play()
                                     view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                                 }
-                            }
-                            .padding(horizontal = 14.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Glyph(habit.emoji, if (done) onAccent else ink, 18.dp)
-                        Spacer(Modifier.width(6.dp))
-                        Text(habit.name, color = if (done) onAccent else ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        if (done) {
-                            Spacer(Modifier.width(6.dp))
-                            Icon(Icons.Rounded.Check, null, tint = onAccent, modifier = Modifier.size(16.dp))
-                        }
+                        GlyphCircle(
+                            saved = habit.emoji,
+                            selected = done,
+                            size = 54.dp,
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    scaleX = scale
+                                    scaleY = scale
+                                }
+                                .confetti(burst),
+                            accent = accent,
+                            onAccent = onAccent,
+                            idleRing = ink.copy(alpha = 0.3f),
+                            idleGlyph = accent,
+                        )
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            habit.name,
+                            color = ink,
+                            fontSize = 11.sp,
+                            lineHeight = 13.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = TextAlign.Center,
+                            fontWeight = if (done) FontWeight.SemiBold else FontWeight.Normal,
+                        )
                     }
                 }
             }

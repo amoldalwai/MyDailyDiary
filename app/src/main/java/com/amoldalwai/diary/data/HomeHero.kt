@@ -16,6 +16,11 @@ class HomeHero(context: Context) {
     private val appContext = context.applicationContext
     private val dir = File(appContext.filesDir, "hero").apply { mkdirs() }
 
+    /** True when the last real download attempt failed; skipped attempts (already fetched today, offline) leave it alone. */
+    @Volatile
+    var lastFetchFailed = false
+        private set
+
     /** The newest photo already stored, today's or an older one. */
     fun latest(): File? = dir.listFiles { f -> f.extension == "jpg" }?.maxByOrNull { it.lastModified() }
 
@@ -29,7 +34,7 @@ class HomeHero(context: Context) {
         // The date seeds the daily photo, so reopening the app doesn't change it.
         val seed = if (force) System.nanoTime().toString() else today.toString()
         val target = File(dir, "hero_${today}_$seed.jpg")
-        runCatching {
+        val fetched = runCatching {
             val conn = URL("https://picsum.photos/seed/$seed/800/520").openConnection() as HttpURLConnection
             try {
                 conn.connectTimeout = 8_000
@@ -46,6 +51,8 @@ class HomeHero(context: Context) {
                 conn.disconnect()
             }
         }.getOrNull()
+        lastFetchFailed = fetched == null
+        fetched
     }
 
     fun isOnline(): Boolean {

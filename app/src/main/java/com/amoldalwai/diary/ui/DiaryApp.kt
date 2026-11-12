@@ -80,7 +80,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     profileEmoji = vm.settings.profileEmoji,
                     profileName = vm.settings.profileName,
                     profilePhoto = profilePhoto,
-                    heroImage = vm.heroFile,
+                    heroImage = vm.heroFile.takeUnless { vm.heroUnavailable },
                     heroLoading = vm.heroLoading,
                     onRefreshHero = vm::refreshHeroNow,
                     imageFile = vm::imageFile,

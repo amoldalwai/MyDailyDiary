@@ -250,6 +250,10 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     var heroLoading by mutableStateOf(false)
         private set
 
+    /** The photo service didn't answer, so Home shows its gradient until a download works again. */
+    var heroUnavailable by mutableStateOf(false)
+        private set
+
     // First-run slides, and the step of the spotlight tour (null when it isn't running).
     var showWelcome by mutableStateOf(!settings.onboardingDone)
         private set
@@ -309,7 +313,13 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun refreshHero() {
-        hero.refresh(LocalDate.now())?.let { heroFile = it }
+        val fresh = hero.refresh(LocalDate.now())
+        if (fresh != null) {
+            heroFile = fresh
+            heroUnavailable = false
+        } else if (hero.lastFetchFailed) {
+            heroUnavailable = true
+        }
     }
 
     fun refreshHeroNow() {
@@ -321,7 +331,13 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         heroLoading = true
         viewModelScope.launch {
             val fresh = hero.refresh(LocalDate.now(), force = true)
-            if (fresh != null) heroFile = fresh else Toast.makeText(getApplication(), "Couldn't load a new photo", Toast.LENGTH_SHORT).show()
+            if (fresh != null) {
+                heroFile = fresh
+                heroUnavailable = false
+            } else {
+                heroUnavailable = true
+                Toast.makeText(getApplication(), "Couldn't load a new photo", Toast.LENGTH_SHORT).show()
+            }
             heroLoading = false
         }
     }

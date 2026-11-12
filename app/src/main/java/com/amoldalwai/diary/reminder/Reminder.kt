@@ -99,11 +99,12 @@ class ReminderReceiver : BroadcastReceiver() {
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        // A reboot and an app update both wipe scheduled alarms.
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val settings = SettingsStore(context)
         if (settings.reminderEnabled) {
             ReminderScheduler.schedule(context, settings.reminderHour, settings.reminderMinute)
         }
-        if (settings.nudgesEnabled) HabitNudges.schedule(context, settings)
+        if (settings.nudgesEnabled) HabitNudges.ensureScheduled(context, settings)
     }
 }

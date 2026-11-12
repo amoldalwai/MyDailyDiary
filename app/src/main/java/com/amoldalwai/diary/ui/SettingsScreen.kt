@@ -197,8 +197,8 @@ fun SettingsScreen(
                             onHabitNudge = onHabitNudge,
                             onTest = {
                                 scope.launch {
-                                    val sent = withContext(Dispatchers.IO) { HabitNudges.nudge(context, settings, ignoreWindow = true) }
-                                    if (!sent) Toast.makeText(context, "Every habit is already done today", Toast.LENGTH_SHORT).show()
+                                    val sent = withContext(Dispatchers.IO) { HabitNudges.nudge(context, settings, ignoreWindow = true, ignoreDone = true) }
+                                    if (!sent) Toast.makeText(context, "Add a habit first to try a nudge", Toast.LENGTH_SHORT).show()
                                 }
                             },
                         )

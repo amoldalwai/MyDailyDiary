@@ -152,6 +152,11 @@ class SettingsStore(context: Context) {
         prefs.edit().putString("nudgeHabits", json.toString()).apply()
     }
 
+    /** When the next habit nudge is due, so the alarm can be put back after an app update. */
+    var nudgeNextAt: Long
+        get() = prefs.getLong("nudgeNextAt", 0L)
+        set(value) = prefs.edit().putLong("nudgeNextAt", value).apply()
+
     /** The habit and wording last used, so the next nudge rotates instead of repeating. */
     var nudgeLastHabit: String?
         get() = prefs.getString("nudgeLastHabit", null)

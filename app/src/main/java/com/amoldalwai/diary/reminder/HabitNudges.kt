@@ -22,7 +22,8 @@ import java.time.ZonedDateTime
 
 /** Asks about one unfinished habit at a time, spaced through the day, with a one-tap Done button. */
 object HabitNudges {
-    private const val CHANNEL_ID = "habit_nudges"
+    private const val CHANNEL_ID = "habit_nudges_v2"
+    private const val LEGACY_CHANNEL_ID = "habit_nudges"
     private const val REQUEST_ALARM = 2001
     private const val REQUEST_OPEN = 2002
     private const val NOTIFICATION_ID = 2003
@@ -51,8 +52,11 @@ object HabitNudges {
     )
 
     fun ensureChannel(context: Context) {
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Habit nudges", NotificationManager.IMPORTANCE_DEFAULT).apply {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        // The first channel was created with default importance, which only lands quietly in the shade; importance can't be raised later.
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, "Habit nudges", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "A question about one habit at a time"
             },
         )
@@ -77,8 +81,21 @@ object HabitNudges {
                 else today.plusDays(1).atTime(start / 60, start % 60).atZone(zone)
             }
         }
-        context.getSystemService(AlarmManager::class.java)
-            .setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at.toInstant().toEpochMilli(), alarmIntent(context))
+        settings.nudgeNextAt = at.toInstant().toEpochMilli()
+        arm(context, settings.nudgeNextAt)
+    }
+
+    private fun arm(context: Context, atMillis: Long) {
+        context.getSystemService(AlarmManager::class.java).setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, atMillis, alarmIntent(context))
+    }
+
+    /**
+     * An app update or a force-stop wipes alarms. Put the next one back at its saved time, or pick a new time when that has passed,
+     * so opening the app doesn't keep pushing the next nudge further away.
+     */
+    fun ensureScheduled(context: Context, settings: SettingsStore) {
+        val next = settings.nudgeNextAt
+        if (next > System.currentTimeMillis()) arm(context, next) else schedule(context, settings)
     }
 
     fun cancel(context: Context) {
@@ -86,8 +103,8 @@ object HabitNudges {
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
     }
 
-    /** Posts a nudge for one unfinished habit; returns false when there was nothing to ask about. */
-    suspend fun nudge(context: Context, settings: SettingsStore, ignoreWindow: Boolean = false): Boolean {
+    /** Posts a nudge for one unfinished habit; returns false when there was nothing to ask about. [ignoreDone] is for the test button. */
+    suspend fun nudge(context: Context, settings: SettingsStore, ignoreWindow: Boolean = false, ignoreDone: Boolean = false): Boolean {
         val habitsRepo = HabitsRepository(context)
         val today = LocalDate.now()
         val done = habitsRepo.doneIds(today.toEpochDay())
@@ -96,7 +113,7 @@ object HabitNudges {
             val n = settings.nudgeFor(habit.id)
             val from = if (n.from >= 0) n.from else settings.nudgeFrom
             val to = if (n.to >= 0) n.to else settings.nudgeTo
-            habit.id !in done && (ignoreWindow || (n.on && nowMinutes in from..to))
+            (ignoreDone || habit.id !in done) && (ignoreWindow || (n.on && nowMinutes in from..to))
         }
         if (pending.isEmpty()) return false
 
@@ -133,7 +150,7 @@ object HabitNudges {
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)
             .addAction(R.drawable.ic_launcher_monochrome, "Done ✓", doneIntent)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .build()

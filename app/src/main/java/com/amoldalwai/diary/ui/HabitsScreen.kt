@@ -223,7 +223,6 @@ private fun WeekTable(stats: List<HabitStat>, onToggleToday: (String, Boolean) -
         Spacer(Modifier.height(14.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Spacer(Modifier.width(NAME_COLUMN))
             days.forEach { day ->
                 val isToday = day == today
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -241,34 +240,39 @@ private fun WeekTable(stats: List<HabitStat>, onToggleToday: (String, Boolean) -
         Spacer(Modifier.height(6.dp))
         stats.forEachIndexed { row, stat ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outline.copy(alpha = 0.25f)))
-            Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.width(NAME_COLUMN).padding(end = 6.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Glyph(stat.habit.emoji, colors.primary, 16.dp)
-                        Spacer(Modifier.width(5.dp))
-                        Text(stat.habit.name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colors.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    if (stat.currentStreak > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.LocalFireDepartment, null, tint = colors.primary, modifier = Modifier.size(13.dp))
-                            Text(" ${stat.currentStreak}", fontSize = 11.sp, color = colors.onSurfaceVariant)
-                        }
-                    }
+            Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                // Name on its own line with the streak on the right, then the seven days underneath.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    GlyphCircle(stat.habit.emoji, false, 34.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        stat.habit.name,
+                        modifier = Modifier.weight(1f),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (stat.currentStreak > 0) StreakChip(stat.currentStreak)
                 }
-                weeks[row].forEachIndexed { i, done ->
-                    val isToday = i == 6
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        DayDot(done, isToday) {
-                            if (!done) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
-                            onToggleToday(stat.habit.id, !done)
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    weeks[row].forEachIndexed { i, done ->
+                        val isToday = i == 6
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                            DayDot(done, isToday) {
+                                if (!done) view.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
+                                onToggleToday(stat.habit.id, !done)
+                            }
                         }
                     }
                 }
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outline.copy(alpha = 0.25f)))
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Done", modifier = Modifier.width(NAME_COLUMN), fontSize = 11.sp, color = colors.onSurfaceVariant)
+        Text("Habits done each day", modifier = Modifier.padding(top = 10.dp), fontSize = 11.sp, color = colors.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             for (i in 0 until 7) {
                 val count = weeks.count { it[i] }
                 val all = stats.isNotEmpty() && count == stats.size
@@ -287,19 +291,33 @@ private fun WeekTable(stats: List<HabitStat>, onToggleToday: (String, Boolean) -
     Text("Tap today's circle to tick a habit. Earlier days are a record and can't be changed.", fontSize = 12.sp, color = colors.onSurfaceVariant)
 }
 
-private val NAME_COLUMN = 84.dp
+/** The streak flame is always orange, whatever the theme colour. */
+private val FlameOrange = Color(0xFFFF7A1A)
+
+/** Flame and day count in a soft orange pill. */
+@Composable
+private fun StreakChip(days: Int) {
+    Row(
+        Modifier.clip(CircleShape).background(FlameOrange.copy(alpha = 0.14f)).padding(start = 7.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.LocalFireDepartment, "Streak", tint = FlameOrange, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(3.dp))
+        Text("$days", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FlameOrange)
+    }
+}
 
 @Composable
 private fun DayDot(done: Boolean, isToday: Boolean, onToggleToday: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val base = Modifier.size(24.dp).clip(CircleShape)
+    val base = Modifier.size(30.dp).clip(CircleShape)
     val styled = when {
         done -> base.background(colors.primary)
         isToday -> base.border(2.dp, colors.primary, CircleShape)
         else -> base.border(1.5.dp, colors.outline.copy(alpha = 0.55f), CircleShape)
     }
     Box(if (isToday) styled.clickable(onClick = onToggleToday) else styled, contentAlignment = Alignment.Center) {
-        if (done) Icon(Icons.Rounded.Check, null, tint = colors.onPrimary, modifier = Modifier.size(15.dp))
+        if (done) Icon(Icons.Rounded.Check, null, tint = colors.onPrimary, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -321,7 +339,7 @@ private fun HabitStatCard(stat: HabitStat, onEdit: () -> Unit, modifier: Modifie
             Column(Modifier.weight(1f)) {
                 Text(stat.habit.name, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = colors.onSurface)
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.LocalFireDepartment, null, tint = colors.primary, modifier = Modifier.size(15.dp))
+                    Icon(Icons.Rounded.LocalFireDepartment, null, tint = FlameOrange, modifier = Modifier.size(17.dp))
                     Text(
                         " ${stat.currentStreak} day streak · best ${stat.bestStreak}",
                         fontSize = 13.sp,

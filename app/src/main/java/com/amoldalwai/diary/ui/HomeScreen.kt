@@ -49,6 +49,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
@@ -155,7 +160,6 @@ private fun Greeting(
     onRefreshHero: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = MaterialTheme.colorScheme
     // Re-read the clock every minute so the greeting follows the day while the app stays open.
     val now by produceState(LocalDateTime.now()) {
         while (true) {
@@ -165,57 +169,81 @@ private fun Greeting(
     }
     val greeting = remember(now.hour, now.toLocalDate(), profileName) { Greetings.greeting(now.hour, now.toLocalDate(), profileName) }
     val date = remember { LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.getDefault())) }
-    if (heroImage != null) {
-        val shape = RoundedCornerShape(30.dp)
-        Box(modifier.fillMaxWidth().height(224.dp).clip(shape)) {
+    val shape = RoundedCornerShape(30.dp)
+    Box(modifier.fillMaxWidth().height(224.dp).clip(shape)) {
+        if (heroImage != null) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current).data(heroImage).crossfade(600).build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-            // Soft shade at the top for the avatar and a deeper one at the bottom for the words, whatever the photo is.
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(0f to Color(0x40000000), 0.4f to Color.Transparent, 1f to Color(0xC0000000)),
+        } else {
+            HeroGradient(Modifier.fillMaxSize())
+        }
+        // Soft shade at the top for the avatar and a deeper one at the bottom for the words, whatever the photo is.
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(0f to Color(0x40000000), 0.4f to Color.Transparent, 1f to Color(0xC0000000)),
+            ),
+        )
+        Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 20.dp)) {
+            Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+            Spacer(Modifier.height(4.dp))
+            Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        val spin = rememberInfiniteTransition(label = "heroSpin")
+        val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")
+        Box(
+            Modifier.align(Alignment.TopStart).padding(14.dp).size(34.dp).bouncyClick(onRefreshHero).clip(CircleShape).background(Color(0x33FFFFFF)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.Refresh,
+                "New photo",
+                tint = Color.White,
+                modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = if (heroLoading) angle else 0f },
+            )
+        }
+        Column(Modifier.align(Alignment.TopEnd).padding(14.dp).tourTarget("home_profile").bouncyClick(onProfile), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.clip(CircleShape).background(Color(0x33FFFFFF)).padding(3.dp)) { AvatarRing(profileEmoji, profilePhoto, level, 52.dp) }
+            Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        }
+    }
+}
+
+/** Stands in for the daily photo when none is stored (first launch offline, or the photo service is down). */
+@Composable
+private fun HeroGradient(modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val tones = remember(scheme.primary, scheme.tertiary, scheme.secondary) {
+        listOf(scheme.primary, scheme.tertiary, scheme.secondary, scheme.primary).map(::deepenForWhiteText)
+    }
+    val drift = rememberInfiniteTransition(label = "heroGradient")
+    val phase by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(10_000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "heroPhase")
+    Box(
+        modifier.drawBehind {
+            val w = size.width
+            val h = size.height
+            drawRect(
+                Brush.linearGradient(tones, start = Offset(w * phase, 0f), end = Offset(w * phase + w * 1.1f, h), tileMode = TileMode.Mirror),
+            )
+            drawRect(
+                Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = 0.16f), Color.Transparent),
+                    center = Offset(w * (0.15f + 0.7f * phase), h * 0.3f),
+                    radius = w * 0.55f,
                 ),
             )
-            Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 20.dp)) {
-                Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
-                Spacer(Modifier.height(4.dp))
-                Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            val spin = rememberInfiniteTransition(label = "heroSpin")
-            val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")
-            Box(
-                Modifier.align(Alignment.TopStart).padding(14.dp).size(34.dp).bouncyClick(onRefreshHero).clip(CircleShape).background(Color(0x33FFFFFF)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Rounded.Refresh,
-                    "New photo",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = if (heroLoading) angle else 0f },
-                )
-            }
-            Column(Modifier.align(Alignment.TopEnd).padding(14.dp).tourTarget("home_profile").bouncyClick(onProfile), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.clip(CircleShape).background(Color(0x33FFFFFF)).padding(3.dp)) { AvatarRing(profileEmoji, profilePhoto, level, 52.dp) }
-                Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            }
-        }
-        return
-    }
-    Row(modifier, verticalAlignment = Alignment.Top) {
-        Column(Modifier.weight(1f)) {
-            Text(date, fontSize = 13.sp, color = colors.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = colors.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-        Column(Modifier.tourTarget("home_profile").bouncyClick(onProfile).padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            AvatarRing(profileEmoji, profilePhoto, level, 54.dp)
-            Text("Lv ${level.level}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant)
-        }
-    }
+        },
+    )
+}
+
+/** Darkens a colour until white text on it reads clearly (contrast of at least 4.5:1). */
+private fun deepenForWhiteText(color: Color): Color {
+    var c = color
+    repeat(10) { if (c.luminance() > 0.17f) c = lerp(c, Color.Black, 0.15f) }
+    return c
 }
 
 /** Tapping a mood opens Quick Add with it already chosen; ignoring the card is fine. */

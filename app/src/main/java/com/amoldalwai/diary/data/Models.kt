@@ -64,6 +64,8 @@ data class Book(
     val status: BookStatus = BookStatus.Reading,
     val startedAt: Long? = null,
     val finishedAt: Long? = null,
+    /** Year it was finished when only the year is known; with neither this nor [finishedAt] it was finished long ago. */
+    val finishedYear: Int? = null,
     val rating: Int? = null,
     val review: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
@@ -77,6 +79,9 @@ data class Book(
 data class BookLog(val page: Int, val updatedAt: Long)
 
 enum class GameStatus { Playing, Completed, Backlog }
+
+/** What the user says when adding something already finished: a rating and the year ([year] null = a long time ago). */
+data class FinishInfo(val rating: Int, val year: Int?)
 
 enum class WatchKind { Movie, Series }
 
@@ -95,6 +100,7 @@ data class WatchItem(
     val episode: Int = 0,
     val startedAt: Long? = null,
     val finishedAt: Long? = null,
+    val finishedYear: Int? = null,
     val rating: Int? = null,
     val review: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
@@ -112,6 +118,7 @@ data class Game(
     val status: GameStatus = GameStatus.Playing,
     val startedAt: Long? = null,
     val completedAt: Long? = null,
+    val completedYear: Int? = null,
     val rating: Int? = null,
     val review: String = "",
     val updatedAt: Long = System.currentTimeMillis(),
@@ -134,5 +141,8 @@ data class DiaryEntry(
     val links: List<String> = emptyList(),
 ) {
     val isBlank: Boolean get() = title.isBlank() && body.isBlank() && images.isEmpty() && links.isEmpty()
+
+    /** A page can only be saved with a title or some writing. */
+    val hasText: Boolean get() = title.isNotBlank() || body.isNotBlank()
     val date: LocalDate get() = LocalDate.ofEpochDay(dateEpochDay)
 }

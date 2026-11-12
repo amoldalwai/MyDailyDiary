@@ -2,6 +2,7 @@ package com.amoldalwai.diary.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.Game
 import com.amoldalwai.diary.data.GameResult
 import com.amoldalwai.diary.data.GameStatus
@@ -12,7 +13,7 @@ import java.io.File
 fun GamesScreen(
     games: List<Game>,
     cover: (String) -> File,
-    onAddGame: (GameResult, String, GameStatus) -> Unit,
+    onAddGame: (GameResult, String, GameStatus, FinishInfo?) -> Unit,
     onUpdate: (Game) -> Unit,
     onDelete: (Game) -> Unit,
     onBack: () -> Unit,

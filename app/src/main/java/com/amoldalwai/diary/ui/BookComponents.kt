@@ -68,6 +68,7 @@ import coil.compose.AsyncImage
 import com.amoldalwai.diary.data.Book
 import com.amoldalwai.diary.data.BookResult
 import com.amoldalwai.diary.data.BookStatus
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.OpenLibrary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -213,14 +214,15 @@ fun StatusChips(selected: BookStatus, onSelect: (BookStatus) -> Unit) {
 /** Search Open Library by title; picking a result lets you choose the shelf and page details. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BookSearchSheet(onDismiss: () -> Unit, onAdd: (BookResult, BookStatus, Int?, Int) -> Unit) {
+fun BookSearchSheet(onDismiss: () -> Unit, onAdd: (BookResult, BookStatus, Int?, Int, FinishInfo?) -> Unit) {
     val colors = MaterialTheme.colorScheme
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<BookResult>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<BookResult?>(null) }
-    var status by remember { mutableStateOf(BookStatus.Reading) }
+    var status by remember { mutableStateOf(BookStatus.Want) }
+    var askFinish by remember { mutableStateOf(false) }
     var total by remember { mutableStateOf("") }
     var current by remember { mutableStateOf("") }
 
@@ -344,9 +346,27 @@ fun BookSearchSheet(onDismiss: () -> Unit, onAdd: (BookResult, BookStatus, Int?,
                     TextButton(onClick = { selected = null }) { Text("Back") }
                     Spacer(Modifier.weight(1f))
                     Button(onClick = {
-                        onAdd(pick, status, total.toIntOrNull()?.takeIf { it > 0 }, current.toIntOrNull() ?: 0)
-                        onDismiss()
+                        val totalPages = total.toIntOrNull()?.takeIf { it > 0 }
+                        val reachedEnd = status == BookStatus.Reading && totalPages != null && (current.toIntOrNull() ?: 0) >= totalPages
+                        if (status == BookStatus.Finished || reachedEnd) askFinish = true else {
+                            onAdd(pick, status, totalPages, current.toIntOrNull() ?: 0, null)
+                            onDismiss()
+                        }
                     }) { Text("Add to library") }
+                }
+                if (askFinish) {
+                    FinishDialog(
+                        title = pick.title,
+                        noun = "book",
+                        startRating = 3,
+                        askYear = true,
+                        onConfirm = { finish ->
+                            askFinish = false
+                            onAdd(pick, BookStatus.Finished, total.toIntOrNull()?.takeIf { it > 0 }, current.toIntOrNull() ?: 0, finish)
+                            onDismiss()
+                        },
+                        onCancel = { askFinish = false },
+                    )
                 }
             }
         }
@@ -400,18 +420,22 @@ fun BookDetailSheet(
         facts = listOfNotNull(book.authors.ifBlank { null }, book.year?.toString()),
         notes = listOfNotNull(
             book.startedAt?.let { "Started" to date(it) },
-            book.finishedAt?.let { "Finished" to date(it) },
+            book.finishedAt?.let { "Finished" to date(it) }
+                ?: if (book.status == BookStatus.Finished) "Finished" to (book.finishedYear?.toString() ?: "Long time ago") else null,
         ),
         onDismiss = onDismiss,
         onDelete = onDelete,
         onSave = {
+            val page = (current.toIntOrNull() ?: book.currentPage).let { if (totalPages != null) it.coerceAtMost(totalPages) else it }
+            // Reaching the last page finishes the book, which then asks for a rating.
+            val reachedEnd = status == BookStatus.Reading && totalPages != null && page >= totalPages
             onSave(
                 book.copy(
-                    status = status,
+                    status = if (reachedEnd) BookStatus.Finished else status,
                     rating = rating,
                     review = review.trim(),
                     totalPages = totalPages,
-                    currentPage = (current.toIntOrNull() ?: book.currentPage).let { if (totalPages != null) it.coerceAtMost(totalPages) else it },
+                    currentPage = page,
                 ),
             )
         },

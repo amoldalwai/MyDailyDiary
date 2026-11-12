@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.amoldalwai.diary.util.RichText
 
-class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 8) {
+class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 9) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -51,6 +51,17 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         createGames(db)
         addReviewColumns(db)
         createWatch(db)
+        addFinishedYearColumns(db)
+    }
+
+    /** The year something was finished when the exact day isn't known; safe to run on any schema version. */
+    private fun addFinishedYearColumns(db: SQLiteDatabase) {
+        for ((table, column) in listOf("books" to "finished_year", "games" to "completed_year", "watch_items" to "finished_year")) {
+            val existing = buildSet {
+                db.rawQuery("PRAGMA table_info($table)", null).use { while (it.moveToNext()) add(it.getString(1)) }
+            }
+            if (column !in existing) db.execSQL("ALTER TABLE $table ADD COLUMN $column INTEGER")
+        }
     }
 
     private fun createWatch(db: SQLiteDatabase) {
@@ -188,6 +199,7 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         if (oldVersion < 6) addReviewColumns(db)
         if (oldVersion < 7) createWatch(db)
         if (oldVersion < 8) db.execSQL("ALTER TABLE entries ADD COLUMN links TEXT NOT NULL DEFAULT '[]'")
+        if (oldVersion < 9) addFinishedYearColumns(db)
     }
 
     /** Version 1 stored bold/italic as `**`/`*` markers inside the body. */

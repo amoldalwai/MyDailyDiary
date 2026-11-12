@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import com.amoldalwai.diary.data.Book
 import com.amoldalwai.diary.data.BookResult
 import com.amoldalwai.diary.data.BookStatus
+import com.amoldalwai.diary.data.FinishInfo
 import java.io.File
 
 /** The book library: the shared media library fed with books. */
@@ -12,7 +13,7 @@ import java.io.File
 fun BooksScreen(
     books: List<Book>,
     cover: (String) -> File,
-    onAddBook: (BookResult, BookStatus, Int?, Int) -> Unit,
+    onAddBook: (BookResult, BookStatus, Int?, Int, FinishInfo?) -> Unit,
     onUpdate: (Book) -> Unit,
     onDelete: (Book) -> Unit,
     onBack: () -> Unit,

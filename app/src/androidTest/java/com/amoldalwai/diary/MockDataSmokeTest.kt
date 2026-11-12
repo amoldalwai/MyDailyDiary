@@ -16,6 +16,7 @@ import com.amoldalwai.diary.data.BookStatus
 import com.amoldalwai.diary.data.BooksRepository
 import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.DiaryRepository
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.Game
 import com.amoldalwai.diary.data.GameStatus
 import com.amoldalwai.diary.data.GamesRepository
@@ -27,6 +28,7 @@ import com.amoldalwai.diary.data.ThemeMode
 import com.amoldalwai.diary.data.WatchItem
 import com.amoldalwai.diary.data.WatchKind
 import com.amoldalwai.diary.data.WatchRepository
+import com.amoldalwai.diary.data.WatchResult
 import com.amoldalwai.diary.data.WatchStatus
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -192,6 +194,63 @@ class MockDataSmokeTest {
         act { searchQuery = "Mock"; runSearch() }
         act { openHub(Screen.Search); runSearch() }
         act { goBack() }
+    }
+
+    @Test
+    fun finishingAndPastPageRules() {
+        scenario = ActivityScenario.launch(MainActivity::class.java)
+        scenario!!.onActivity { vm = ViewModelProvider(it)[DiaryViewModel::class.java] }
+        settle(2500)
+
+        // Finishing a book asks for a rating (3 preselected) and saves nothing until it is given.
+        val book = vm.books.first { it.status == BookStatus.Reading && it.totalPages != null }
+        act { updateBook(book.copy(status = BookStatus.Finished)) }
+        assertEquals(3, vm.finishRequest?.startRating)
+        assertEquals(BookStatus.Reading, vm.books.first { it.id == book.id }.status)
+        act { answerFinish(4) }
+        val finished = vm.books.first { it.id == book.id }
+        assertEquals(BookStatus.Finished, finished.status)
+        assertEquals(4, finished.rating)
+        assertTrue(finished.finishedAt != null)
+
+        // Reaching the last page finishes a book the same way.
+        val reading = vm.books.first { it.status == BookStatus.Reading && it.totalPages != null }
+        act { setBookPage(reading, LocalDate.now(), reading.totalPages!!) }
+        assertTrue("Last page should ask for a rating", vm.finishRequest != null)
+        act { answerFinish(null) }
+        assertEquals(BookStatus.Reading, vm.books.first { it.id == reading.id }.status)
+
+        // A movie needs a rating too, and backing out leaves it on the watchlist.
+        val movie = vm.watchItems.first { it.status == WatchStatus.Watchlist }
+        act { updateWatch(movie.copy(status = WatchStatus.Watched)) }
+        assertEquals(null, vm.finishRequest?.startRating)
+        act { answerFinish(null) }
+        assertEquals(WatchStatus.Watchlist, vm.watchItems.first { it.id == movie.id }.status)
+
+        // Added as watched "a long time ago": rated, but with no date at all.
+        act { addWatch(WatchResult(WatchKind.Movie, "Old Movie", 1999, "", null, null, "Manual"), WatchKind.Movie, WatchStatus.Watched, 0, 0, FinishInfo(7, null)) {} }
+        val old = vm.watchItems.first { it.title == "Old Movie" }
+        assertEquals(WatchStatus.Watched, old.status)
+        assertEquals(7, old.rating)
+        assertEquals(null, old.finishedAt)
+        assertEquals(null, old.finishedYear)
+
+        // Added as watched in a given year: only the year is kept.
+        act { addWatch(WatchResult(WatchKind.Movie, "Year Movie", 2010, "", null, null, "Manual"), WatchKind.Movie, WatchStatus.Watched, 0, 0, FinishInfo(8, 2023)) {} }
+        val dated = vm.watchItems.first { it.title == "Year Movie" }
+        assertEquals(2023, dated.finishedYear)
+        assertEquals(null, dated.finishedAt)
+
+        // Past pages can be read but not edited.
+        act { openDetail(firstEntryId) }
+        assertTrue(vm.detailEntry!!.date.isBefore(LocalDate.now()))
+        act { openEditor(vm.detailEntry!!) }
+        assertTrue("Past page must stay read-only", vm.screen is Screen.Detail)
+
+        // A quick note needs text.
+        val before = vm.homeStats.total
+        act { saveQuickEntry(Mood.Happy, emptyList(), "  ", emptyList()) }
+        assertEquals(before, vm.homeStats.total)
     }
 
     @Test

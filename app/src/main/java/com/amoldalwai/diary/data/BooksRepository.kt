@@ -45,7 +45,7 @@ class BooksRepository(context: Context) {
         }
     }
 
-    /** Records the page reached on a day and moves the book to Reading or Finished when appropriate. */
+    /** Records the page reached on a day and moves a book on the want list to Reading; finishing is left to the caller, which asks for a rating. */
     suspend fun logPage(bookId: String, epochDay: Long, page: Int): Book? = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         upsertLog(bookId, epochDay, BookLog(page, now))
@@ -56,17 +56,11 @@ class BooksRepository(context: Context) {
         val book = queryBooks("WHERE id = '${bookId.replace("'", "''")}'").firstOrNull() ?: return@withContext null
         var status = book.status
         var started = book.startedAt
-        var finished = book.finishedAt
         if (status == BookStatus.Want) {
             status = BookStatus.Reading
             started = started ?: now
         }
-        val total = book.totalPages
-        if (total != null && latest >= total && status != BookStatus.Finished) {
-            status = BookStatus.Finished
-            finished = now
-        }
-        val updated = book.copy(currentPage = latest, status = status, startedAt = started, finishedAt = finished, updatedAt = now)
+        val updated = book.copy(currentPage = latest, status = status, startedAt = started, updatedAt = now)
         upsertBook(updated)
         updated
     }
@@ -101,7 +95,7 @@ class BooksRepository(context: Context) {
 
     private fun queryBooks(tail: String): List<Book> = buildList {
         db.rawQuery(
-            "SELECT id, ol_key, title, authors, year, cover, total_pages, current_page, status, started_at, finished_at, updated_at, deleted, rating, review FROM books $tail",
+            "SELECT id, ol_key, title, authors, year, cover, total_pages, current_page, status, started_at, finished_at, updated_at, deleted, rating, review, finished_year FROM books $tail",
             null,
         ).use { while (it.moveToNext()) add(it.toBook()) }
     }
@@ -122,6 +116,7 @@ class BooksRepository(context: Context) {
         deleted = getInt(12) == 1,
         rating = if (isNull(13)) null else getInt(13),
         review = getString(14).orEmpty(),
+        finishedYear = if (isNull(15)) null else getInt(15),
     )
 
     private fun upsertBook(b: Book) {
@@ -144,6 +139,7 @@ class BooksRepository(context: Context) {
                 put("deleted", if (b.deleted) 1 else 0)
                 put("rating", b.rating)
                 put("review", b.review)
+                put("finished_year", b.finishedYear)
             },
             SQLiteDatabase.CONFLICT_REPLACE,
         )

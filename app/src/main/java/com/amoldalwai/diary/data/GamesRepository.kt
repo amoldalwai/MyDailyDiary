@@ -45,7 +45,7 @@ class GamesRepository(context: Context) {
 
     private fun query(tail: String, vararg args: String): List<Game> = buildList {
         db.rawQuery(
-            "SELECT id, steam_app_id, title, developer, year, platform, cover, status, started_at, completed_at, updated_at, deleted, rating, review FROM games $tail",
+            "SELECT id, steam_app_id, title, developer, year, platform, cover, status, started_at, completed_at, updated_at, deleted, rating, review, completed_year FROM games $tail",
             args.takeIf { it.isNotEmpty() }?.let { arrayOf(*it) },
         ).use { while (it.moveToNext()) add(it.toGame()) }
     }
@@ -65,6 +65,7 @@ class GamesRepository(context: Context) {
         deleted = getInt(11) == 1,
         rating = if (isNull(12)) null else getInt(12),
         review = getString(13).orEmpty(),
+        completedYear = if (isNull(14)) null else getInt(14),
     )
 
     private fun upsert(g: Game) {
@@ -86,6 +87,7 @@ class GamesRepository(context: Context) {
                 put("deleted", if (g.deleted) 1 else 0)
                 put("rating", g.rating)
                 put("review", g.review)
+                put("completed_year", g.completedYear)
             },
             SQLiteDatabase.CONFLICT_REPLACE,
         )

@@ -151,7 +151,7 @@ fun QuickAddSheet(
     var addingGroup by remember { mutableStateOf(false) }
     val collapsed = remember { mutableStateMapOf<String, Boolean>() }
     LaunchedEffect(Unit) { habitUi.load(today) }
-    val canSave = mood != null || selected.isNotEmpty() || note.isNotBlank() || links.isNotEmpty()
+    val canSave = note.isNotBlank()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -234,7 +234,7 @@ fun QuickAddSheet(
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 3,
                     maxLines = 8,
-                    placeholder = { Text("Write a few words…") },
+                    placeholder = { Text("Write a few words to save this entry") },
                 )
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

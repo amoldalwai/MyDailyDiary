@@ -37,7 +37,7 @@ class WatchRepository(context: Context) {
 
     private fun query(tail: String, vararg args: String): List<WatchItem> = buildList {
         db.rawQuery(
-            "SELECT id, kind, title, year, info, cover, status, season, episode, started_at, finished_at, rating, review, updated_at, deleted FROM watch_items $tail",
+            "SELECT id, kind, title, year, info, cover, status, season, episode, started_at, finished_at, rating, review, updated_at, deleted, finished_year FROM watch_items $tail",
             args.takeIf { it.isNotEmpty() }?.let { arrayOf(*it) },
         ).use { while (it.moveToNext()) add(it.toItem()) }
     }
@@ -58,6 +58,7 @@ class WatchRepository(context: Context) {
         review = getString(12).orEmpty(),
         updatedAt = getLong(13),
         deleted = getInt(14) == 1,
+        finishedYear = if (isNull(15)) null else getInt(15),
     )
 
     private fun upsert(w: WatchItem) {
@@ -80,6 +81,7 @@ class WatchRepository(context: Context) {
                 put("review", w.review)
                 put("updated_at", w.updatedAt)
                 put("deleted", if (w.deleted) 1 else 0)
+                put("finished_year", w.finishedYear)
             },
             SQLiteDatabase.CONFLICT_REPLACE,
         )

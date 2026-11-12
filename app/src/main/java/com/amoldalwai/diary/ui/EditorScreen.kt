@@ -73,6 +73,7 @@ import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -148,6 +149,7 @@ fun EditorScreen(
     var showStickers by remember { mutableStateOf(false) }
     var showDrawing by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var needsText by remember { mutableStateOf(false) }
     var importing by remember { mutableStateOf(false) }
 
     val bg = PageStyles.background(entry.style.backgroundId)
@@ -220,7 +222,11 @@ fun EditorScreen(
 
     fun close() {
         val current = entry
-        if (current.isBlank || current == original) onDiscard() else onSave(current.copy(updatedAt = System.currentTimeMillis()))
+        when {
+            current.isBlank || current == original -> onDiscard()
+            !current.hasText -> needsText = true
+            else -> onSave(current.copy(updatedAt = System.currentTimeMillis()))
+        }
     }
 
     BackHandler { close() }
@@ -514,6 +520,21 @@ fun EditorScreen(
                 }
             }
         }
+    }
+
+    if (needsText) {
+        AlertDialog(
+            onDismissRequest = { needsText = false },
+            title = { Text("Add a title or some text") },
+            text = { Text("A page needs a title or some writing before it can be saved.") },
+            confirmButton = { TextButton(onClick = { needsText = false }) { Text("Keep writing") } },
+            dismissButton = {
+                TextButton(onClick = {
+                    needsText = false
+                    onDiscard()
+                }) { Text("Discard changes") }
+            },
+        )
     }
 
     if (showDatePicker) {

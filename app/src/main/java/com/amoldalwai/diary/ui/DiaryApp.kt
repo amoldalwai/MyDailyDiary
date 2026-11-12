@@ -172,7 +172,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                 Screen.Watch -> WatchScreen(
                     items = vm.watchItems,
                     cover = vm::watchCover,
-                    onAdd = { result, kind, status, season, episode -> vm.addWatch(result, kind, status, season, episode) {} },
+                    onAdd = { result, kind, status, season, episode, finish -> vm.addWatch(result, kind, status, season, episode, finish) {} },
                     onUpdate = vm::updateWatch,
                     onDelete = vm::deleteWatch,
                     onBack = vm::goBack,
@@ -181,7 +181,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                 Screen.Games -> GamesScreen(
                     games = vm.games,
                     cover = vm::gameCover,
-                    onAddGame = { result, platform, status -> vm.addGame(result, platform, status) {} },
+                    onAddGame = { result, platform, status, finish -> vm.addGame(result, platform, status, finish) {} },
                     onUpdate = vm::updateGame,
                     onDelete = vm::deleteGame,
                     onBack = vm::goBack,
@@ -199,7 +199,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                 Screen.Books -> BooksScreen(
                     books = vm.books,
                     cover = vm::bookCover,
-                    onAddBook = { result, status, total, current -> vm.addBook(result, status, total, current) {} },
+                    onAddBook = { result, status, total, current, finish -> vm.addBook(result, status, total, current, finish) {} },
                     onUpdate = vm::updateBook,
                     onDelete = vm::deleteBook,
                     onBack = vm::goBack,
@@ -335,6 +335,16 @@ fun DiaryApp(vm: DiaryViewModel) {
         }
 
         if (!vm.locked) {
+            vm.finishRequest?.let { request ->
+                FinishDialog(
+                    title = request.title,
+                    noun = request.noun,
+                    startRating = request.startRating,
+                    askYear = false,
+                    onConfirm = { vm.answerFinish(it.rating) },
+                    onCancel = { vm.answerFinish(null) },
+                )
+            }
             CompletionCelebration(vm.celebration, vm.settings.habitSound, vm::clearCelebration)
             if (vm.levelUp == null && vm.entrySplash == null) AwardBanner(vm.awardBanner, vm::dismissAwardBanner)
             EntrySavedSplash(vm.entrySplash, vm.settings.habitSound, vm::dismissEntrySplash)

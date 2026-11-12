@@ -67,6 +67,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import com.amoldalwai.diary.data.WikipediaGames
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.Game
 import com.amoldalwai.diary.data.GameResult
 import com.amoldalwai.diary.data.GameStatus
@@ -208,7 +209,7 @@ private fun PlatformChips(selected: String, onSelect: (String) -> Unit) {
 /** Search Steam (PC) and Wikipedia (every platform) together; anything missing can be added by hand. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GameSearchSheet(onDismiss: () -> Unit, onAdd: (GameResult, String, GameStatus) -> Unit) {
+fun GameSearchSheet(onDismiss: () -> Unit, onAdd: (GameResult, String, GameStatus, FinishInfo?) -> Unit) {
     val colors = MaterialTheme.colorScheme
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<GameResult>>(emptyList()) }
@@ -216,7 +217,8 @@ fun GameSearchSheet(onDismiss: () -> Unit, onAdd: (GameResult, String, GameStatu
     var error by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<GameResult?>(null) }
     var platform by remember { mutableStateOf("PC") }
-    var status by remember { mutableStateOf(GameStatus.Completed) }
+    var status by remember { mutableStateOf(GameStatus.Backlog) }
+    var askFinish by remember { mutableStateOf(false) }
     var year by remember { mutableStateOf("") }
 
     LaunchedEffect(query) {
@@ -343,9 +345,25 @@ fun GameSearchSheet(onDismiss: () -> Unit, onAdd: (GameResult, String, GameStatu
                     TextButton(onClick = { selected = null }) { Text("Back") }
                     Spacer(Modifier.weight(1f))
                     Button(onClick = {
-                        onAdd(pick.copy(year = year.toIntOrNull()), platform, status)
-                        onDismiss()
+                        if (status == GameStatus.Completed) askFinish = true else {
+                            onAdd(pick.copy(year = year.toIntOrNull()), platform, status, null)
+                            onDismiss()
+                        }
                     }) { Text("Add to library") }
+                }
+                if (askFinish) {
+                    FinishDialog(
+                        title = pick.title,
+                        noun = "game",
+                        startRating = null,
+                        askYear = true,
+                        onConfirm = { finish ->
+                            askFinish = false
+                            onAdd(pick.copy(year = year.toIntOrNull()), platform, status, finish)
+                            onDismiss()
+                        },
+                        onCancel = { askFinish = false },
+                    )
                 }
             }
         }
@@ -376,7 +394,8 @@ fun GameDetailSheet(
         facts = listOfNotNull(game.year?.toString(), platform, game.developer.ifBlank { null }),
         notes = listOfNotNull(
             game.startedAt?.let { "Started" to date(it) },
-            game.completedAt?.let { "Completed" to date(it) },
+            game.completedAt?.let { "Completed" to date(it) }
+                ?: if (game.status == GameStatus.Completed) "Completed" to (game.completedYear?.toString() ?: "Long time ago") else null,
         ),
         onDismiss = onDismiss,
         onDelete = onDelete,

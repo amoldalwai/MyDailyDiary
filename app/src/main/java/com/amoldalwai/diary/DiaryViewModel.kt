@@ -17,6 +17,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.amoldalwai.diary.data.DayMarker
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.ActivityGroup
 import com.amoldalwai.diary.data.Book
 import com.amoldalwai.diary.data.BookResult
@@ -220,6 +221,18 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var celebration by mutableStateOf<Celebration?>(null)
         private set
+
+    /** Something was just marked finished and needs a rating before it is saved; [save] runs with the chosen rating. */
+    class FinishRequest(val title: String, val noun: String, val startRating: Int?, val save: (Int) -> Unit)
+
+    var finishRequest by mutableStateOf<FinishRequest?>(null)
+        private set
+
+    fun answerFinish(rating: Int?) {
+        val request = finishRequest ?: return
+        finishRequest = null
+        if (rating != null) request.save(rating)
+    }
     var levelUp by mutableStateOf<LevelUp?>(null)
         private set
     var awardBanner by mutableStateOf<List<String>>(emptyList())
@@ -624,13 +637,14 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             val updated = booksRepo.logPage(book.id, day, page)
             bookLogs[day] = booksRepo.logsOn(day)
             books = booksRepo.books()
-            if (updated != null && updated.status == BookStatus.Finished && book.status != BookStatus.Finished) {
-                celebrate("Finished “${updated.title}”")
+            val total = updated?.totalPages
+            if (updated != null && updated.status != BookStatus.Finished && total != null && updated.currentPage >= total) {
+                updateBook(updated.copy(status = BookStatus.Finished))
             }
         }
     }
 
-    fun addBook(result: BookResult, status: BookStatus, totalPages: Int?, currentPage: Int, onDone: (String) -> Unit) {
+    fun addBook(result: BookResult, status: BookStatus, totalPages: Int?, currentPage: Int, finish: FinishInfo?, onDone: (String) -> Unit) {
         viewModelScope.launch {
             val existing = books.firstOrNull {
                 same(it.title, result.title) && (it.authors.isBlank() || result.authors.isBlank() || same(it.authors, result.authors))
@@ -638,6 +652,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             if (existing != null) return@launch alreadyAdded(existing.title, existing.id, onDone)
             val cover = result.coverId?.let { OpenLibrary.downloadCover(it) }?.let { booksRepo.saveCover(it) }
             val now = System.currentTimeMillis()
+            val done = status == BookStatus.Finished
             val book = Book(
                 openLibraryKey = result.key,
                 title = result.title,
@@ -645,15 +660,17 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                 year = result.year,
                 cover = cover,
                 totalPages = totalPages ?: result.pages,
-                currentPage = if (status == BookStatus.Finished) (totalPages ?: result.pages ?: currentPage) else currentPage,
+                currentPage = if (done) (totalPages ?: result.pages ?: currentPage) else currentPage,
                 status = status,
-                startedAt = if (status == BookStatus.Want) null else now,
-                finishedAt = if (status == BookStatus.Finished) now else null,
+                startedAt = if (status == BookStatus.Reading) now else null,
+                finishedAt = if (done && finish == null) now else null,
+                finishedYear = if (done) finish?.year else null,
+                rating = if (done) finish?.rating else null,
                 updatedAt = now,
             )
             booksRepo.save(book)
             books = booksRepo.books()
-            if (status == BookStatus.Finished) celebrate("Finished “${book.title}”")
+            if (done && finish?.year == LocalDate.now().year) celebrate("Finished “${book.title}”")
             onDone(book.id)
         }
     }
@@ -664,17 +681,23 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateBook(book: Book) {
         val now = System.currentTimeMillis()
-        val wasFinished = books.firstOrNull { it.id == book.id }?.status == BookStatus.Finished
+        val newlyDone = book.status == BookStatus.Finished && books.firstOrNull { it.id == book.id }?.status != BookStatus.Finished
+        // Finishing needs a rating; nothing is saved until one is given.
+        if (newlyDone && book.rating == null) {
+            finishRequest = FinishRequest(book.title, "book", 3) { rating -> updateBook(book.copy(rating = rating)) }
+            return
+        }
         val fixed = when (book.status) {
-            BookStatus.Want -> book.copy(startedAt = null, finishedAt = null)
-            BookStatus.Reading -> book.copy(startedAt = book.startedAt ?: now, finishedAt = null)
+            BookStatus.Want -> book.copy(startedAt = null, finishedAt = null, finishedYear = null)
+            BookStatus.Reading -> book.copy(startedAt = book.startedAt ?: now, finishedAt = null, finishedYear = null)
             BookStatus.Finished -> book.copy(
                 startedAt = book.startedAt ?: now,
-                finishedAt = book.finishedAt ?: now,
+                finishedAt = if (newlyDone) now else book.finishedAt,
+                finishedYear = if (newlyDone) null else book.finishedYear,
                 currentPage = book.totalPages ?: book.currentPage,
             )
         }
-        if (!wasFinished && fixed.status == BookStatus.Finished) celebrate("Finished “${fixed.title}”")
+        if (newlyDone) celebrate("Finished “${fixed.title}”")
         viewModelScope.launch {
             booksRepo.save(fixed.copy(updatedAt = now))
             books = booksRepo.books()
@@ -693,7 +716,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     fun gameCover(name: String): File = gamesRepo.imageFile(name)
 
     /** A result with neither a Steam id nor a cover URL is a hand-typed game and gets no cover. */
-    fun addGame(result: GameResult, platform: String, status: GameStatus, onDone: (String) -> Unit) {
+    fun addGame(result: GameResult, platform: String, status: GameStatus, finish: FinishInfo?, onDone: (String) -> Unit) {
         viewModelScope.launch {
             val existing = games.firstOrNull { same(it.title, result.title) }
             if (existing != null) return@launch alreadyAdded(existing.title, existing.id, onDone)
@@ -704,6 +727,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             }
             val cover = bytes?.let { gamesRepo.saveCover(it) }
             val now = System.currentTimeMillis()
+            val done = status == GameStatus.Completed
             val game = Game(
                 steamAppId = result.appId.takeIf { it > 0 },
                 title = result.title,
@@ -712,13 +736,15 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                 platform = platform,
                 cover = cover,
                 status = status,
-                startedAt = if (status == GameStatus.Backlog) null else now,
-                completedAt = if (status == GameStatus.Completed) now else null,
+                startedAt = if (status == GameStatus.Playing) now else null,
+                completedAt = if (done && finish == null) now else null,
+                completedYear = if (done) finish?.year else null,
+                rating = if (done) finish?.rating else null,
                 updatedAt = now,
             )
             gamesRepo.save(game)
             games = gamesRepo.games()
-            if (status == GameStatus.Completed) celebrate("Completed “${game.title}”")
+            if (done && finish?.year == LocalDate.now().year) celebrate("Completed “${game.title}”")
             onDone(game.id)
         }
     }
@@ -729,13 +755,21 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateGame(game: Game) {
         val now = System.currentTimeMillis()
-        val wasDone = games.firstOrNull { it.id == game.id }?.status == GameStatus.Completed
-        val fixed = when (game.status) {
-            GameStatus.Backlog -> game.copy(startedAt = null, completedAt = null)
-            GameStatus.Playing -> game.copy(startedAt = game.startedAt ?: now, completedAt = null)
-            GameStatus.Completed -> game.copy(startedAt = game.startedAt ?: now, completedAt = game.completedAt ?: now)
+        val newlyDone = game.status == GameStatus.Completed && games.firstOrNull { it.id == game.id }?.status != GameStatus.Completed
+        if (newlyDone && game.rating == null) {
+            finishRequest = FinishRequest(game.title, "game", null) { rating -> updateGame(game.copy(rating = rating)) }
+            return
         }
-        if (!wasDone && fixed.status == GameStatus.Completed) celebrate("Completed “${fixed.title}”")
+        val fixed = when (game.status) {
+            GameStatus.Backlog -> game.copy(startedAt = null, completedAt = null, completedYear = null)
+            GameStatus.Playing -> game.copy(startedAt = game.startedAt ?: now, completedAt = null, completedYear = null)
+            GameStatus.Completed -> game.copy(
+                startedAt = game.startedAt ?: now,
+                completedAt = if (newlyDone) now else game.completedAt,
+                completedYear = if (newlyDone) null else game.completedYear,
+            )
+        }
+        if (newlyDone) celebrate("Completed “${fixed.title}”")
         viewModelScope.launch {
             gamesRepo.save(fixed.copy(updatedAt = now))
             games = gamesRepo.games()
@@ -753,13 +787,14 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun watchCover(name: String): File = watchRepo.imageFile(name)
 
-    fun addWatch(result: WatchResult, kind: WatchKind, status: WatchStatus, season: Int, episode: Int, onDone: (String) -> Unit) {
+    fun addWatch(result: WatchResult, kind: WatchKind, status: WatchStatus, season: Int, episode: Int, finish: FinishInfo?, onDone: (String) -> Unit) {
         viewModelScope.launch {
             val existing = watchItems.firstOrNull { it.kind == kind && same(it.title, result.title) }
             if (existing != null) return@launch alreadyAdded(existing.title, existing.id, onDone)
             val bytes = result.coverUrl?.let { WikipediaGames.downloadCover(it) }
             val cover = bytes?.let { watchRepo.saveCover(it) }
             val now = System.currentTimeMillis()
+            val done = status == WatchStatus.Watched
             val item = WatchItem(
                 kind = kind,
                 title = result.title,
@@ -769,13 +804,15 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                 status = status,
                 season = if (kind == WatchKind.Series) season else 0,
                 episode = if (kind == WatchKind.Series) episode else 0,
-                startedAt = if (status == WatchStatus.Watchlist) null else now,
-                finishedAt = if (status == WatchStatus.Watched) now else null,
+                startedAt = if (status == WatchStatus.Watching) now else null,
+                finishedAt = if (done && finish == null) now else null,
+                finishedYear = if (done) finish?.year else null,
+                rating = if (done) finish?.rating else null,
                 updatedAt = now,
             )
             watchRepo.save(item)
             watchItems = watchRepo.items()
-            if (status == WatchStatus.Watched) celebrate("Watched “${item.title}”")
+            if (done && finish?.year == LocalDate.now().year) celebrate("Watched “${item.title}”")
             onDone(item.id)
         }
     }
@@ -786,15 +823,24 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateWatch(item: WatchItem) {
         val now = System.currentTimeMillis()
-        val wasDone = watchItems.firstOrNull { it.id == item.id }?.status == WatchStatus.Watched
+        val newlyDone = item.status == WatchStatus.Watched && watchItems.firstOrNull { it.id == item.id }?.status != WatchStatus.Watched
+        if (newlyDone && item.rating == null) {
+            finishRequest = FinishRequest(item.title, if (item.kind == WatchKind.Series) "series" else "movie", null) { rating -> updateWatch(item.copy(rating = rating)) }
+            return
+        }
         // Starting an episode counter on a watchlist title means you've started watching it.
         val status = if (item.status == WatchStatus.Watchlist && (item.season > 0 || item.episode > 0)) WatchStatus.Watching else item.status
         val fixed = when (status) {
-            WatchStatus.Watchlist -> item.copy(status = status, startedAt = null, finishedAt = null)
-            WatchStatus.Watching -> item.copy(status = status, startedAt = item.startedAt ?: now, finishedAt = null)
-            WatchStatus.Watched -> item.copy(status = status, startedAt = item.startedAt ?: now, finishedAt = item.finishedAt ?: now)
+            WatchStatus.Watchlist -> item.copy(status = status, startedAt = null, finishedAt = null, finishedYear = null)
+            WatchStatus.Watching -> item.copy(status = status, startedAt = item.startedAt ?: now, finishedAt = null, finishedYear = null)
+            WatchStatus.Watched -> item.copy(
+                status = status,
+                startedAt = item.startedAt ?: now,
+                finishedAt = if (newlyDone) now else item.finishedAt,
+                finishedYear = if (newlyDone) null else item.finishedYear,
+            )
         }
-        if (!wasDone && fixed.status == WatchStatus.Watched) celebrate("Watched “${fixed.title}”")
+        if (newlyDone) celebrate("Watched “${fixed.title}”")
         viewModelScope.launch {
             watchRepo.save(fixed.copy(updatedAt = now))
             watchItems = watchRepo.items()
@@ -885,6 +931,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun saveQuickEntry(mood: Mood?, tags: List<String>, note: String, links: List<String>) {
+        if (note.isBlank()) return
         quickAddOpen = false
         val entry = DiaryEntry(mood = mood, tags = tags, body = note.trim(), links = links)
         viewModelScope.launch {
@@ -902,6 +949,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Attach or detach library items on a saved page. */
     fun updateLinks(entry: DiaryEntry, links: List<String>) {
+        if (entry.date.isBefore(LocalDate.now())) return
         val updated = entry.copy(links = links, updatedAt = System.currentTimeMillis())
         detailEntry = updated
         viewModelScope.launch {
@@ -969,6 +1017,8 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openEditor(entry: DiaryEntry) {
+        // Past pages are a record: they can be read and deleted, not rewritten.
+        if (entry.date.isBefore(LocalDate.now())) return
         screen = Screen.Editor(entry, isNew = false)
     }
 

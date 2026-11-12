@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.amoldalwai.diary.data.ScreenSearch
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.WatchItem
 import com.amoldalwai.diary.data.WatchKind
 import com.amoldalwai.diary.data.WatchResult
@@ -176,7 +177,7 @@ private fun RemoteArt(url: String?, modifier: Modifier) {
 /** Search movies (Wikipedia) and series (Wikipedia + TVMaze) in one list; anything missing can be added by hand. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WatchSearchSheet(onDismiss: () -> Unit, onAdd: (WatchResult, WatchKind, WatchStatus, Int, Int) -> Unit) {
+fun WatchSearchSheet(onDismiss: () -> Unit, onAdd: (WatchResult, WatchKind, WatchStatus, Int, Int, FinishInfo?) -> Unit) {
     val colors = MaterialTheme.colorScheme
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<WatchResult>>(emptyList()) }
@@ -184,7 +185,8 @@ fun WatchSearchSheet(onDismiss: () -> Unit, onAdd: (WatchResult, WatchKind, Watc
     var error by remember { mutableStateOf<String?>(null) }
     var selected by remember { mutableStateOf<WatchResult?>(null) }
     var kind by remember { mutableStateOf(WatchKind.Movie) }
-    var status by remember { mutableStateOf(WatchStatus.Watched) }
+    var status by remember { mutableStateOf(WatchStatus.Watchlist) }
+    var askFinish by remember { mutableStateOf(false) }
     var season by remember { mutableStateOf(1) }
     var episode by remember { mutableStateOf(0) }
     var year by remember { mutableStateOf("") }
@@ -309,10 +311,26 @@ fun WatchSearchSheet(onDismiss: () -> Unit, onAdd: (WatchResult, WatchKind, Watc
                     TextButton(onClick = { selected = null }) { Text("Back") }
                     Spacer(Modifier.weight(1f))
                     Button(onClick = {
-                        val watching = kind == WatchKind.Series && status == WatchStatus.Watching
-                        onAdd(pick.copy(year = year.toIntOrNull()), kind, status, if (watching) season else 0, if (watching) episode else 0)
-                        onDismiss()
+                        if (status == WatchStatus.Watched) askFinish = true else {
+                            val watching = kind == WatchKind.Series && status == WatchStatus.Watching
+                            onAdd(pick.copy(year = year.toIntOrNull()), kind, status, if (watching) season else 0, if (watching) episode else 0, null)
+                            onDismiss()
+                        }
                     }) { Text("Add to library") }
+                }
+                if (askFinish) {
+                    FinishDialog(
+                        title = pick.title,
+                        noun = if (kind == WatchKind.Series) "series" else "movie",
+                        startRating = null,
+                        askYear = true,
+                        onConfirm = { finish ->
+                            askFinish = false
+                            onAdd(pick.copy(year = year.toIntOrNull()), kind, status, 0, 0, finish)
+                            onDismiss()
+                        },
+                        onCancel = { askFinish = false },
+                    )
                 }
             }
         }
@@ -344,7 +362,8 @@ fun WatchDetailSheet(
         facts = listOfNotNull(watchKindLabels.getValue(item.kind), item.year?.toString(), item.info.ifBlank { null }),
         notes = listOfNotNull(
             item.startedAt?.let { "Started" to date(it) },
-            item.finishedAt?.let { "Finished" to date(it) },
+            item.finishedAt?.let { "Finished" to date(it) }
+                ?: if (item.status == WatchStatus.Watched) "Finished" to (item.finishedYear?.toString() ?: "Long time ago") else null,
         ),
         onDismiss = onDismiss,
         onDelete = onDelete,

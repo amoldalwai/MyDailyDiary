@@ -53,6 +53,7 @@ import coil.compose.AsyncImage
 import com.amoldalwai.diary.data.Book
 import com.amoldalwai.diary.data.BookResult
 import com.amoldalwai.diary.data.BookStatus
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.Game
 import com.amoldalwai.diary.data.GameResult
 import com.amoldalwai.diary.data.GameStatus
@@ -77,9 +78,9 @@ class MediaUi(
     val pageOn: (Book, LocalDate) -> Int,
     val loadLogs: (LocalDate) -> Unit,
     val setPage: (Book, LocalDate, Int) -> Unit,
-    val addBook: (BookResult, BookStatus, Int?, Int, (String) -> Unit) -> Unit,
-    val addGame: (GameResult, String, GameStatus, (String) -> Unit) -> Unit,
-    val addWatch: (WatchResult, WatchKind, WatchStatus, Int, Int, (String) -> Unit) -> Unit,
+    val addBook: (BookResult, BookStatus, Int?, Int, FinishInfo?, (String) -> Unit) -> Unit,
+    val addGame: (GameResult, String, GameStatus, FinishInfo?, (String) -> Unit) -> Unit,
+    val addWatch: (WatchResult, WatchKind, WatchStatus, Int, Int, FinishInfo?, (String) -> Unit) -> Unit,
     val setBookStatus: (String, BookStatus) -> Unit,
     val setGameStatus: (String, GameStatus) -> Unit,
     val setWatchStatus: (String, WatchStatus) -> Unit,
@@ -114,6 +115,7 @@ fun EntryMediaSection(
     ink: Color,
     onInk: Color,
     modifier: Modifier = Modifier,
+    readOnly: Boolean = false,
 ) {
     if (!ui.anyEnabled) return
     val current by rememberUpdatedState(links)
@@ -141,7 +143,7 @@ fun EntryMediaSection(
             val id = key.substringAfter(':')
             when (key.substringBefore(':')) {
                 BOOK -> ui.books.firstOrNull { it.id == id }?.let { book ->
-                    LinkedCard(ink, onRemove = { setLinks(current - key) }) {
+                    LinkedCard(ink, onRemove = { setLinks(current - key) }.takeUnless { readOnly }) {
                         if (book.status == BookStatus.Reading) {
                             BookProgressRow(book, ui.pageOn(book, date), ink, ui.bookCover) { ui.setPage(book, date, it) }
                         } else {
@@ -152,14 +154,14 @@ fun EntryMediaSection(
                 }
 
                 GAME -> ui.games.firstOrNull { it.id == id }?.let { game ->
-                    LinkedCard(ink, onRemove = { setLinks(current - key) }) {
+                    LinkedCard(ink, onRemove = { setLinks(current - key) }.takeUnless { readOnly }) {
                         LinkedHeader(game.title, game.platform, game.cover?.let(ui.gameCover), ink)
                         StatusPills(gameLabels, gameOrder.indexOf(game.status), ink, onInk) { ui.setGameStatus(game.id, gameOrder[it]) }
                     }
                 }
 
                 WATCH -> ui.watch.firstOrNull { it.id == id }?.let { item ->
-                    LinkedCard(ink, onRemove = { setLinks(current - key) }) {
+                    LinkedCard(ink, onRemove = { setLinks(current - key) }.takeUnless { readOnly }) {
                         val sub = listOfNotNull(watchKindLabels[item.kind], item.year?.toString()).joinToString(" · ")
                         LinkedHeader(item.title, sub, item.cover?.let(ui.watchCover), ink)
                         StatusPills(watchLabels, watchOrder.indexOf(item.status), ink, onInk) { ui.setWatchStatus(item.id, watchOrder[it]) }
@@ -167,7 +169,7 @@ fun EntryMediaSection(
                 }
             }
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!readOnly) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (ui.booksEnabled) AddPill("Book", ink) { openAdd(BOOK) }
             if (ui.watchEnabled) AddPill("Movie / series", ink) { openAdd(WATCH) }
             if (ui.gamesEnabled) AddPill("Game", ink) { openAdd(GAME) }
@@ -205,29 +207,29 @@ fun EntryMediaSection(
     when (search) {
         BOOK -> BookSearchSheet(
             onDismiss = { search = null },
-            onAdd = { result, status, total, now -> ui.addBook(result, status, total, now) { attach(it, BOOK) } },
+            onAdd = { result, status, total, now, finish -> ui.addBook(result, status, total, now, finish) { attach(it, BOOK) } },
         )
 
         GAME -> GameSearchSheet(
             onDismiss = { search = null },
-            onAdd = { result, platform, status -> ui.addGame(result, platform, status) { attach(it, GAME) } },
+            onAdd = { result, platform, status, finish -> ui.addGame(result, platform, status, finish) { attach(it, GAME) } },
         )
 
         WATCH -> WatchSearchSheet(
             onDismiss = { search = null },
-            onAdd = { result, kind, status, season, episode -> ui.addWatch(result, kind, status, season, episode) { attach(it, WATCH) } },
+            onAdd = { result, kind, status, season, episode, finish -> ui.addWatch(result, kind, status, season, episode, finish) { attach(it, WATCH) } },
         )
     }
 }
 
 @Composable
-private fun LinkedCard(ink: Color, onRemove: () -> Unit, content: @Composable () -> Unit) {
+private fun LinkedCard(ink: Color, onRemove: (() -> Unit)?, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Box(Modifier.fillMaxWidth().clip(shape).background(ink.copy(alpha = 0.07f))) {
         Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             content()
         }
-        Box(
+        if (onRemove != null) Box(
             Modifier.align(Alignment.TopEnd).size(34.dp).clickable(onClick = onRemove),
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Rounded.Close, "Remove from this page", tint = ink.copy(alpha = 0.5f), modifier = Modifier.size(16.dp)) }

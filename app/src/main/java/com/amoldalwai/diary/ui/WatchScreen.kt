@@ -2,6 +2,7 @@ package com.amoldalwai.diary.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.WatchItem
 import com.amoldalwai.diary.data.WatchKind
 import com.amoldalwai.diary.data.WatchResult
@@ -13,7 +14,7 @@ import java.io.File
 fun WatchScreen(
     items: List<WatchItem>,
     cover: (String) -> File,
-    onAdd: (WatchResult, WatchKind, WatchStatus, Int, Int) -> Unit,
+    onAdd: (WatchResult, WatchKind, WatchStatus, Int, Int, FinishInfo?) -> Unit,
     onUpdate: (WatchItem) -> Unit,
     onDelete: (WatchItem) -> Unit,
     onBack: () -> Unit,

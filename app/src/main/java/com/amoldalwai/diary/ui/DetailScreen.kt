@@ -37,6 +37,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -142,6 +143,7 @@ private fun DetailPage(
     val scale = entry.style.fontScale
     var confirmDelete by remember { mutableStateOf(false) }
     var viewing by remember { mutableStateOf<String?>(null) }
+    val isPast = entry.date.isBefore(java.time.LocalDate.now())
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val startPad by animateDpAsState(if (entry.style.margin) 50.dp else 24.dp, label = "pageStart")
@@ -186,7 +188,16 @@ private fun DetailPage(
                 IconButton(onClick = { confirmDelete = true }) {
                     Icon(Icons.Rounded.DeleteOutline, "Delete", tint = bg.ink)
                 }
-                Surface(onClick = onEdit, shape = CircleShape, color = bg.ink) {
+                if (isPast) {
+                    Row(
+                        Modifier.clip(CircleShape).background(bg.ink.copy(alpha = 0.08f)).padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Lock, null, tint = bg.inkSoft, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Past page", color = bg.inkSoft, fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    }
+                } else Surface(onClick = onEdit, shape = CircleShape, color = bg.ink) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Edit, null, tint = bg.onInk, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -292,13 +303,14 @@ private fun DetailPage(
                         }
                     }
                 }
-                if (mediaUi.anyEnabled) {
+                if (mediaUi.anyEnabled && (!isPast || entry.links.isNotEmpty())) {
                     Spacer(Modifier.height(32.dp))
                     Text("BOOKS · MOVIES · GAMES", color = bg.inkSoft, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(10.dp))
                     EntryMediaSection(
                         links = entry.links,
                         onLinks = onLinks,
+                        readOnly = isPast,
                         date = entry.date,
                         ui = mediaUi,
                         ink = bg.ink,

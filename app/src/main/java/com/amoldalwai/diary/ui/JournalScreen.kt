@@ -1,5 +1,6 @@
 package com.amoldalwai.diary.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -7,20 +8,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SelectAll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -62,17 +70,46 @@ fun JournalScreen(
     onNewEntry: (LocalDate) -> Unit,
     loadForExport: suspend (from: Long?, to: Long?) -> List<DiaryEntry>,
     completions: Map<Long, List<File>>,
+    onDeleteEntries: (List<DiaryEntry>) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
     var calendarMode by rememberSaveable { mutableStateOf(false) }
+    var picked by remember { mutableStateOf<Map<String, DiaryEntry>>(emptyMap()) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    val selecting = picked.isNotEmpty()
+    BackHandler(enabled = selecting) { picked = emptyMap() }
+
+    fun toggle(entry: DiaryEntry) {
+        picked = if (entry.id in picked) picked - entry.id else picked + (entry.id to entry)
+    }
+    // A tap opens the page normally, but once something is picked it adds or removes that page.
+    val openOrToggle: (DiaryEntry) -> Unit = { entry -> if (selecting) toggle(entry) else onOpenEntry(entry) }
 
     Box(Modifier.fillMaxSize().background(colors.background)) {
         FloatingBlobs()
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Journal", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = colors.onBackground, modifier = Modifier.weight(1f))
-                RoundIconButton(Icons.Rounded.Search, "Search", onSearch)
+            if (selecting) {
+                Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RoundIconButton(Icons.Rounded.Close, "Cancel selection", { picked = emptyMap() })
+                    Text(
+                        "${picked.size} selected",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.onBackground,
+                        modifier = Modifier.weight(1f).padding(start = 12.dp),
+                    )
+                    if (!calendarMode) {
+                        RoundIconButton(Icons.Rounded.SelectAll, "Select all", { picked = entries.associateBy { it.id } })
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    RoundIconButton(Icons.Rounded.DeleteOutline, "Delete selected", { confirmDelete = true })
+                }
+            } else {
+                Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Journal", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = colors.onBackground, modifier = Modifier.weight(1f))
+                    RoundIconButton(Icons.Rounded.Search, "Search", onSearch)
+                }
             }
             Segments(calendarMode) { calendarMode = it }
             if (calendarMode) {
@@ -85,16 +122,35 @@ fun JournalScreen(
                     onMonthChange = onMonthChange,
                     onSelect = onSelect,
                     onBack = {},
-                    onOpenEntry = onOpenEntry,
+                    onOpenEntry = openOrToggle,
                     onNewEntry = onNewEntry,
                     loadForExport = loadForExport,
                     completions = completions,
                     embedded = true,
+                    pickedIds = picked.keys,
+                    onLongPress = ::toggle,
                 )
             } else {
-                EntryList(entries, loading, loadingMore, hasMore, imageFile, onOpenEntry, onLoadMore)
+                EntryList(entries, loading, loadingMore, hasMore, imageFile, openOrToggle, onLoadMore, picked.keys, ::toggle)
             }
         }
+    }
+
+    if (confirmDelete) {
+        val count = picked.size
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(if (count == 1) "Delete this page forever?" else "Delete $count pages forever?") },
+            text = { Text("Once deleted, ${if (count == 1) "this page and its photos are" else "these pages and their photos are"} gone for good and can't be brought back. Are you sure?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelete = false
+                    onDeleteEntries(picked.values.toList())
+                    picked = emptyMap()
+                }) { Text("Delete", color = colors.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+        )
     }
 }
 
@@ -138,6 +194,8 @@ private fun EntryList(
     imageFile: (String) -> File,
     onOpenEntry: (DiaryEntry) -> Unit,
     onLoadMore: () -> Unit,
+    pickedIds: Set<String>,
+    onLongPress: (DiaryEntry) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val listState = rememberLazyListState()
@@ -178,6 +236,9 @@ private fun EntryList(
                 imageFile = imageFile,
                 onClick = { onOpenEntry(entry) },
                 modifier = Modifier.animateItem().paperDrop(index, skip = alreadyShown),
+                selecting = pickedIds.isNotEmpty(),
+                selected = entry.id in pickedIds,
+                onLongClick = { onLongPress(entry) },
             )
         }
         if (loadingMore) {

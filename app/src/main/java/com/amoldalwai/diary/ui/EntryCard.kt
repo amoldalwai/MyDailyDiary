@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,6 +59,9 @@ internal fun EntryCard(
     imageFile: (String) -> File,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selecting: Boolean = false,
+    selected: Boolean = false,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val bg = PageStyles.background(entry.style.backgroundId)
     val font = PageStyles.font(entry.style.fontId)
@@ -72,14 +78,18 @@ internal fun EntryCard(
             .fillMaxWidth()
             .padding(top = 4.dp)
             .graphicsLayer { rotationZ = tilt }
-            .bouncyClick(onClick),
+            .bouncyClick(onLongClick = { onLongClick?.invoke() }, onClick = onClick),
     ) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .shadow(8.dp, shape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.25f))
                 .background(bg.brush, shape)
-                .border(1.dp, bg.ink.copy(alpha = 0.08f), shape)
+                .border(
+                    if (selected) 3.dp else 1.dp,
+                    if (selected) primary else bg.ink.copy(alpha = 0.08f),
+                    shape,
+                )
                 .drawBehind {
                     val stitchX = 73.dp.toPx()
                     drawLine(
@@ -195,6 +205,20 @@ internal fun EntryCard(
                     Spacer(Modifier.height(12.dp))
                     PhotoFan(entry.images, imageFile, chipColor, bg.ink)
                 }
+            }
+        }
+        if (selecting) {
+            Box(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 6.dp, top = 6.dp)
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(if (selected) primary else Color.White.copy(alpha = 0.85f))
+                    .border(2.dp, if (selected) primary else bg.ink.copy(alpha = 0.45f), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) Icon(Icons.Rounded.Check, "Selected", tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(17.dp))
             }
         }
     }

@@ -1084,6 +1084,15 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun deleteEntries(entries: List<DiaryEntry>) {
+        if (entries.isEmpty()) return
+        viewModelScope.launch {
+            entries.forEach { repo.delete(it) }
+            afterChange()
+            Toast.makeText(getApplication(), if (entries.size == 1) "Page deleted" else "${entries.size} pages deleted", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private suspend fun afterChange() {
         reloadHome()
         monthMarkers = repo.monthMarkers(calendarMonth.atDay(1).toEpochDay(), calendarMonth.atEndOfMonth().toEpochDay())

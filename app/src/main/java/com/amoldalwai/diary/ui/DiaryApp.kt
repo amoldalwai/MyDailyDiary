@@ -106,6 +106,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onNewEntry = { vm.openNew(it) },
                     loadForExport = vm::entriesForExport,
                     completions = completions,
+                    onDeleteEntries = vm::deleteEntries,
                 )
 
                 Screen.Library -> LibraryScreen(

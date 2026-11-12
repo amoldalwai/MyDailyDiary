@@ -95,6 +95,8 @@ fun CalendarScreen(
     loadForExport: suspend (from: Long?, to: Long?) -> List<DiaryEntry>,
     completions: Map<Long, List<File>> = emptyMap(),
     embedded: Boolean = false,
+    pickedIds: Set<String> = emptySet(),
+    onLongPress: ((DiaryEntry) -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
@@ -225,7 +227,14 @@ fun CalendarScreen(
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             dayEntries.forEach { entry ->
-                                EntryCard(entry, imageFile, onClick = { onOpenEntry(entry) })
+                                EntryCard(
+                                    entry,
+                                    imageFile,
+                                    onClick = { onOpenEntry(entry) },
+                                    selecting = pickedIds.isNotEmpty(),
+                                    selected = entry.id in pickedIds,
+                                    onLongClick = onLongPress?.let { press -> { press(entry) } },
+                                )
                             }
                         }
                     }

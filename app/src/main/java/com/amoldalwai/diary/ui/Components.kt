@@ -16,7 +16,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -84,6 +86,34 @@ fun Modifier.bouncyClick(onClick: () -> Unit): Modifier {
             scaleY = scale
         }
         .clickable(interactionSource = source, indication = null, onClick = onClick)
+}
+
+/** [bouncyClick] that also reacts to a long press with a haptic buzz. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun Modifier.bouncyClick(onLongClick: () -> Unit, onClick: () -> Unit): Modifier {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val view = LocalView.current
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.95f else 1f,
+        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
+        label = "press",
+    )
+    return this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .combinedClickable(
+            interactionSource = source,
+            indication = null,
+            onClick = onClick,
+            onLongClick = {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                onLongClick()
+            },
+        )
 }
 
 /** Fades and slides content up; items further down the list start slightly later. */

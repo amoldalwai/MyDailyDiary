@@ -51,6 +51,15 @@ class SettingsStore(context: Context) {
         prefs.edit().putBoolean("quickActivities", enabled).apply()
     }
 
+    // Home banner: use a photo from the user's own journal pages instead of an online one.
+    var heroOwnPhotos by mutableStateOf(prefs.getBoolean("heroOwnPhotos", false))
+        private set
+
+    fun updateHeroOwnPhotos(enabled: Boolean) {
+        heroOwnPhotos = enabled
+        prefs.edit().putBoolean("heroOwnPhotos", enabled).apply()
+    }
+
     // Local profile and the highest level / awards already celebrated (0 = nothing recorded yet).
     var profileName by mutableStateOf(prefs.getString("profileName", "") ?: "")
         private set

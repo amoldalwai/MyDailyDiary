@@ -284,7 +284,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            heroFile = withContext(Dispatchers.IO) { hero.latest() }
+            if (!settings.heroOwnPhotos) heroFile = withContext(Dispatchers.IO) { hero.latest() }
             refreshHero()
         }
         if (!settings.coversShrunk) {
@@ -313,6 +313,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun refreshHero() {
+        if (useOwnHero(different = false)) return
         val fresh = hero.refresh(LocalDate.now())
         if (fresh != null) {
             heroFile = fresh
@@ -322,7 +323,42 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private var ownHeroName: String? = null
+
+    /** Puts one of the user's own journal photos in the banner, if that setting is on and any exist. */
+    private suspend fun useOwnHero(different: Boolean): Boolean {
+        if (!settings.heroOwnPhotos) return false
+        val name = repo.bannerPhoto(if (different) null else LocalDate.now().toEpochDay(), ownHeroName) ?: return false
+        ownHeroName = name
+        heroFile = repo.imageFile(name)
+        heroUnavailable = false
+        return true
+    }
+
+    fun setHeroOwnPhotos(enabled: Boolean) {
+        settings.updateHeroOwnPhotos(enabled)
+        viewModelScope.launch {
+            if (enabled && !useOwnHero(different = false)) {
+                Toast.makeText(getApplication(), "Add a photo to a journal page and it can appear here", Toast.LENGTH_LONG).show()
+            }
+            if (!enabled) {
+                heroFile = withContext(Dispatchers.IO) { hero.latest() }
+                heroUnavailable = false
+                refreshHero()
+            }
+        }
+    }
+
     fun refreshHeroNow() {
+        if (heroLoading) return
+        if (settings.heroOwnPhotos) {
+            viewModelScope.launch { if (useOwnHero(different = true)) return@launch else fetchHeroOnline() }
+            return
+        }
+        fetchHeroOnline()
+    }
+
+    private fun fetchHeroOnline() {
         if (heroLoading) return
         if (!hero.isOnline()) {
             Toast.makeText(getApplication(), "You're offline, so the photo stays as it is", Toast.LENGTH_SHORT).show()

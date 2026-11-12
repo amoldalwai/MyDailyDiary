@@ -49,6 +49,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
@@ -181,16 +183,23 @@ private fun Greeting(
         } else {
             HeroGradient(Modifier.fillMaxSize())
         }
-        // Soft shade at the top for the avatar and a deeper one at the bottom for the words, whatever the photo is.
+        // A deep shade rises from the bottom, like a streaming banner, so the white words read on any photo; a light one at the top is for the avatar.
         Box(
             Modifier.fillMaxSize().background(
-                Brush.verticalGradient(0f to Color(0x40000000), 0.4f to Color.Transparent, 1f to Color(0xC0000000)),
+                Brush.verticalGradient(
+                    0f to Color(0x59000000),
+                    0.28f to Color.Transparent,
+                    0.48f to Color(0x26000000),
+                    0.76f to Color(0xB8000000),
+                    1f to Color(0xF2000000),
+                ),
             ),
         )
+        val lift = Shadow(Color(0x80000000), Offset(0f, 2f), 8f)
         Column(Modifier.align(Alignment.BottomStart).padding(horizontal = 22.dp, vertical = 20.dp)) {
-            Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+            Text(date, fontSize = 13.sp, color = Color.White.copy(alpha = 0.9f), style = TextStyle(shadow = lift))
             Spacer(Modifier.height(4.dp))
-            Text(greeting, style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(greeting, style = MaterialTheme.typography.headlineLarge.copy(shadow = lift), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         val spin = rememberInfiniteTransition(label = "heroSpin")
         val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")

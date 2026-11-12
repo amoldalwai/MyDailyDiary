@@ -290,6 +290,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onOpenWatch = { vm.openHub(Screen.Watch, from = Screen.Settings) },
                     onStartTour = vm::startTour,
                     onShowWelcome = vm::openWelcome,
+                    onHeroOwnPhotos = vm::setHeroOwnPhotos,
                 )
 
                 is Screen.Detail -> PageTurn {

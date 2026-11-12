@@ -250,6 +250,20 @@ class DiaryRepository(context: Context) {
         scalar("SELECT COALESCE(SUM(image_count), 0) FROM entries")
     }
 
+    /**
+     * A stored journal photo for the Home banner, or null when there is none. The same [seed] gives the same photo,
+     * and a null seed picks at random, never returning [avoid] when another photo exists.
+     */
+    suspend fun bannerPhoto(seed: Long?, avoid: String?): String? = withContext(Dispatchers.IO) {
+        val names = mutableListOf<String>()
+        db.rawQuery("SELECT images FROM entries WHERE image_count > 0 ORDER BY date_epoch DESC, created_at DESC", null).use {
+            while (it.moveToNext()) names += parseList(it.getString(0))
+        }
+        val usable = names.distinct().filter { imageFile(it).isFile }
+        val pool = if (avoid != null && usable.size > 1) usable - avoid else usable
+        if (pool.isEmpty()) null else pool[(if (seed == null) kotlin.random.Random else kotlin.random.Random(seed)).nextInt(pool.size)]
+    }
+
     /** Entry count, photos that earn points (capped per entry) and the longest run of consecutive days, for the progress board. */
     suspend fun progressBasics(): Triple<Int, Int, Int> = withContext(Dispatchers.IO) {
         var longest = 0

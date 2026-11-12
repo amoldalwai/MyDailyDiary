@@ -172,17 +172,16 @@ fun QuickAddSheet(
             Spacer(Modifier.height(10.dp))
             Text("Mood (optional)", fontSize = 12.sp, color = colors.onSurfaceVariant)
             Spacer(Modifier.height(6.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Mood.entries.forEach { m ->
-                    val on = m == mood
-                    Box(
-                        Modifier
-                            .size(44.dp)
-                            .bouncyClick { mood = if (on) null else m }
-                            .clip(CircleShape)
-                            .background(if (on) colors.primary else colors.primaryContainer),
-                        contentAlignment = Alignment.Center,
-                    ) { Text(m.emoji, fontSize = 23.sp) }
+                    MoodPick(
+                        mood = m,
+                        selected = m == mood,
+                        othersSelected = mood != null,
+                        faceSize = 48.dp,
+                        accent = colors.primary,
+                        labelColor = colors.onSurface,
+                    ) { mood = if (m == mood) null else m }
                 }
             }
 

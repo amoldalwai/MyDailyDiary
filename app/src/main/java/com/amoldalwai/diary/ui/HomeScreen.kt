@@ -40,7 +40,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -225,12 +229,28 @@ private fun MoodCard(onMood: (Mood) -> Unit, modifier: Modifier = Modifier) {
         Text("How are you feeling?", fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = colors.onSurface, modifier = Modifier.padding(horizontal = 18.dp))
         Text("Optional. Or tap + to write about your day.", fontSize = 12.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 18.dp, vertical = 2.dp))
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // The tapped face pops with a ring first, then Quick add slides up with it chosen.
+        var picked by remember { mutableStateOf<Mood?>(null) }
+        val scope = rememberCoroutineScope()
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Mood.entries.forEach { mood ->
-                Box(
-                    Modifier.size(50.dp).bouncyClick { onMood(mood) }.clip(CircleShape).background(colors.primaryContainer),
-                    contentAlignment = Alignment.Center,
-                ) { Text(mood.emoji, fontSize = 27.sp) }
+                MoodPick(
+                    mood = mood,
+                    selected = picked == mood,
+                    othersSelected = picked != null,
+                    faceSize = 52.dp,
+                    accent = colors.primary,
+                    labelColor = colors.onSurface,
+                ) {
+                    if (picked == null) {
+                        picked = mood
+                        scope.launch {
+                            delay(450)
+                            onMood(mood)
+                            picked = null
+                        }
+                    }
+                }
             }
         }
     }
@@ -242,7 +262,8 @@ private fun RecentRow(entry: DiaryEntry, imageFile: (String) -> File, onClick: (
     val shape = RoundedCornerShape(22.dp)
     val title = entry.title.ifBlank { entry.body.trim().lineSequence().firstOrNull().orEmpty() }.ifBlank { "Untitled day" }
     val meta = buildList {
-        add((entry.mood?.let { "${it.emoji} " } ?: "") + entry.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())))
+        add(entry.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())))
+        entry.mood?.let { add(it.label) }
         if (entry.images.isNotEmpty()) add("${entry.images.size} ${if (entry.images.size == 1) "photo" else "photos"}")
         if (entry.tags.isNotEmpty()) add(entry.tags.take(2).joinToString(", "))
     }.joinToString(" · ")
@@ -254,7 +275,8 @@ private fun RecentRow(entry: DiaryEntry, imageFile: (String) -> File, onClick: (
             PhotoStack(entry.images, imageFile)
         } else {
             Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
-                Text(entry.mood?.emoji ?: "📝", fontSize = 23.sp)
+                val mood = entry.mood
+                if (mood != null) MoodFace(mood, 38.dp) else Text("📝", fontSize = 23.sp)
             }
         }
         Spacer(Modifier.width(14.dp))
@@ -372,7 +394,7 @@ private fun OnThisDayCard(entries: List<DiaryEntry>, onOpen: (DiaryEntry) -> Uni
                     val years = LocalDate.now().year - entry.date.year
                     Text("$years ${if (years == 1) "year" else "years"} ago", fontSize = 12.sp, color = colors.onSurfaceVariant)
                 }
-                entry.mood?.let { Text(it.emoji, fontSize = 20.sp) }
+                entry.mood?.let { MoodFace(it, 32.dp) }
             }
         }
     }

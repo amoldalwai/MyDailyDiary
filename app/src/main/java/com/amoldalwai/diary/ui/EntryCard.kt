@@ -159,7 +159,7 @@ internal fun EntryCard(
                         Box(
                             Modifier.size(36.dp).rotate(8f).clip(CircleShape).background(chipColor),
                             contentAlignment = Alignment.Center,
-                        ) { Text(it.emoji, fontSize = 18.sp) }
+                        ) { MoodFace(it, 30.dp) }
                     }
                 }
                 if (preview.isNotEmpty()) {

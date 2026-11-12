@@ -401,7 +401,7 @@ private fun DayCell(
             )
             if (marker != null) {
                 if (marker.mood != null) {
-                    Text(marker.mood.emoji, fontSize = 10.sp)
+                    MoodFace(marker.mood, 14.dp)
                 } else {
                     Box(
                         Modifier

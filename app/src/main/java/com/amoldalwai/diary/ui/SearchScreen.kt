@@ -146,7 +146,7 @@ fun SearchScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Mood.entries.forEach { m ->
-                    FilterPill("${m.emoji} ${m.label}", selected = mood == m) { onMood(if (mood == m) null else m) }
+                    FilterPill(m.label, selected = mood == m, leading = { MoodFace(m, 22.dp) }) { onMood(if (mood == m) null else m) }
                 }
             }
             if (knownTags.isNotEmpty()) {
@@ -199,20 +199,28 @@ fun SearchScreen(
 }
 
 @Composable
-private fun FilterPill(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun FilterPill(label: String, selected: Boolean, leading: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val fill = animateColorAsState(if (selected) colors.primary else colors.surface.copy(alpha = 0.85f), label = "pill")
     val text = animateColorAsState(if (selected) colors.onPrimary else colors.onSurface, label = "pillText")
-    Text(
-        label,
-        color = text.value,
-        fontSize = 13.sp,
-        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-        modifier = Modifier
+    Row(
+        Modifier
             .bouncyClick(onClick)
             .clip(RoundedCornerShape(50))
             .background(fill.value)
             .border(1.dp, colors.outline.copy(alpha = 0.4f), RoundedCornerShape(50))
             .padding(horizontal = 14.dp, vertical = 8.dp),
-    )
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            label,
+            color = text.value,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
 }

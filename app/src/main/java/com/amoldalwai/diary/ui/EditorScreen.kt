@@ -302,12 +302,17 @@ fun EditorScreen(
                 SectionLabel("How are you feeling?", bg.inkSoft)
                 Row(
                     Modifier.horizontalScroll(rememberScrollState()).padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Mood.entries.forEach { mood ->
-                        MoodChip(mood, selected = entry.mood == mood, ink = bg.ink) {
-                            entry = entry.copy(mood = if (entry.mood == mood) null else mood)
-                        }
+                        MoodPick(
+                            mood = mood,
+                            selected = entry.mood == mood,
+                            othersSelected = entry.mood != null,
+                            faceSize = 44.dp,
+                            accent = bg.ink,
+                            labelColor = bg.ink,
+                        ) { entry = entry.copy(mood = if (entry.mood == mood) null else mood) }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -613,31 +618,6 @@ fun EditorScreen(
 @Composable
 private fun SectionLabel(text: String, color: Color) {
     Text(text.uppercase(), color = color, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.SemiBold)
-}
-
-@Composable
-private fun MoodChip(mood: Mood, selected: Boolean, ink: Color, onClick: () -> Unit) {
-    val scale by animateFloatAsState(
-        targetValue = if (selected) 1.15f else 1f,
-        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
-        label = "moodScale",
-    )
-    val fill by animateFloatAsState(if (selected) 0.18f else 0.06f, label = "moodFill")
-    Column(
-        Modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .clip(RoundedCornerShape(18.dp))
-            .background(ink.copy(alpha = fill))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(mood.emoji, fontSize = 26.sp)
-        AnimatedVisibility(selected) { Text(mood.label, color = ink, fontSize = 11.sp) }
-    }
 }
 
 @Composable

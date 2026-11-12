@@ -544,7 +544,11 @@ class DiaryRepository(context: Context) {
         }
     }
 
-    private fun moodOf(name: String?): Mood? = Mood.entries.firstOrNull { it.name == name }
+    private fun moodOf(name: String?): Mood? = when (name) {
+        "Loved" -> Mood.VeryHappy
+        "Anxious" -> Mood.Stressed
+        else -> Mood.entries.firstOrNull { it.name == name }
+    }
 
     private fun parseList(json: String): List<String> {
         val array = JSONArray(json)

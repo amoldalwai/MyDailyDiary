@@ -80,22 +80,24 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private fun moodColor(m: Mood): Color = when (m) {
-    Mood.Happy -> Color(0xFFF7C948)
-    Mood.Loved -> Color(0xFFF28DA6)
-    Mood.Excited -> Color(0xFFF7A35C)
+    Mood.VeryHappy -> Color(0xFFF7C948)
+    Mood.Happy -> Color(0xFFA8D86E)
     Mood.Calm -> Color(0xFF7BC8A4)
-    Mood.Tired -> Color(0xFF9DA8B7)
+    Mood.Neutral -> Color(0xFFD2C9A8)
     Mood.Sad -> Color(0xFF6EA8E5)
-    Mood.Anxious -> Color(0xFFC09AE8)
+    Mood.VerySad -> Color(0xFF4F7FD1)
     Mood.Angry -> Color(0xFFE8806A)
+    Mood.Stressed -> Color(0xFFC09AE8)
+    Mood.Tired -> Color(0xFF8E9AAF)
+    Mood.Excited -> Color(0xFFF7A35C)
 }
 
 private fun moodScore(m: Mood): Int = when (m) {
-    Mood.Happy, Mood.Loved, Mood.Excited -> 5
-    Mood.Calm -> 4
-    Mood.Tired -> 3
-    Mood.Sad, Mood.Anxious -> 2
-    Mood.Angry -> 1
+    Mood.VeryHappy, Mood.Excited -> 5
+    Mood.Happy, Mood.Calm -> 4
+    Mood.Neutral, Mood.Tired -> 3
+    Mood.Stressed, Mood.Sad -> 2
+    Mood.VerySad, Mood.Angry -> 1
 }
 
 private const val HEAT_WEEKS = 26
@@ -283,7 +285,7 @@ private fun MoodCard(stats: InsightStats, markers: Map<Long, DayMarker>, today: 
             Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(moodColor(top.first).copy(alpha = 0.2f)).padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(top.first.emoji, fontSize = 34.sp)
+            MoodFace(top.first, 46.dp)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Mostly ${top.first.label.lowercase()}", fontWeight = FontWeight.Bold, color = colors.onSurface, fontSize = 16.sp)
@@ -296,7 +298,7 @@ private fun MoodCard(stats: InsightStats, markers: Map<Long, DayMarker>, today: 
         Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
             stats.moods.forEach { (mood, count) ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(mood.emoji, fontSize = 18.sp)
+                    MoodFace(mood, 26.dp)
                     Spacer(Modifier.width(8.dp))
                     Text(mood.label, modifier = Modifier.width(66.dp), fontSize = 13.sp, color = colors.onSurface)
                     Box(Modifier.weight(1f).height(12.dp).clip(CircleShape).background(colors.surfaceVariant)) {
@@ -328,9 +330,9 @@ private fun MoodCard(stats: InsightStats, markers: Map<Long, DayMarker>, today: 
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth().height(110.dp)) {
                 Column(Modifier.fillMaxHeight().width(24.dp), verticalArrangement = Arrangement.SpaceBetween) {
-                    Text("😊", fontSize = 13.sp)
-                    Text("😐", fontSize = 13.sp)
-                    Text("😢", fontSize = 13.sp)
+                    MoodFace(Mood.VeryHappy, 18.dp)
+                    MoodFace(Mood.Neutral, 18.dp)
+                    MoodFace(Mood.VerySad, 18.dp)
                 }
                 MoodLine(averages, progress, Modifier.weight(1f).fillMaxHeight())
             }

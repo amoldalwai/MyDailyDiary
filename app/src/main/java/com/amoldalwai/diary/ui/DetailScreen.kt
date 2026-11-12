@@ -216,7 +216,8 @@ private fun DetailPage(
                     Spacer(Modifier.height(6.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         entry.mood?.let {
-                            Text("${it.emoji}  ${it.label}", color = bg.ink, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            MoodFace(it, 24.dp)
+                            Text("  ${it.label}", color = bg.ink, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                             Text("  ·  ", color = bg.inkSoft)
                         }
                         Text("Written at $timeText", color = bg.inkSoft, fontSize = 13.sp)

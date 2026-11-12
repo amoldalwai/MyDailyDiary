@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.amoldalwai.diary.util.RichText
 
-class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 9) {
+class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 10) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -200,6 +200,11 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         if (oldVersion < 7) createWatch(db)
         if (oldVersion < 8) db.execSQL("ALTER TABLE entries ADD COLUMN links TEXT NOT NULL DEFAULT '[]'")
         if (oldVersion < 9) addFinishedYearColumns(db)
+        if (oldVersion < 10) {
+            // The mood set changed: Loved and Anxious became Very Happy and Stressed.
+            db.execSQL("UPDATE entries SET mood = 'VeryHappy' WHERE mood = 'Loved'")
+            db.execSQL("UPDATE entries SET mood = 'Stressed' WHERE mood = 'Anxious'")
+        }
     }
 
     /** Version 1 stored bold/italic as `**`/`*` markers inside the body. */

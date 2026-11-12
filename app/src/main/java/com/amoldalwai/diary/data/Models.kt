@@ -3,15 +3,18 @@ package com.amoldalwai.diary.data
 import java.time.LocalDate
 import java.util.UUID
 
+/** [emoji] is only a text stand-in (PDF export, notifications); the app draws the matching face image. */
 enum class Mood(val emoji: String, val label: String) {
-    Happy("😊", "Happy"),
-    Loved("🥰", "Loved"),
-    Excited("🤩", "Excited"),
+    VeryHappy("😄", "Very Happy"),
+    Happy("🙂", "Happy"),
     Calm("😌", "Calm"),
+    Neutral("😐", "Neutral"),
+    Sad("🙁", "Sad"),
+    VerySad("😭", "Very Sad"),
+    Angry("😠", "Angry"),
+    Stressed("😣", "Stressed"),
     Tired("😴", "Tired"),
-    Sad("😢", "Sad"),
-    Anxious("😰", "Anxious"),
-    Angry("😤", "Angry"),
+    Excited("🤩", "Excited"),
 }
 
 data class PageStyle(

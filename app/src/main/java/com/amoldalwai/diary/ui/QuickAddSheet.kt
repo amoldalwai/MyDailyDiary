@@ -92,21 +92,6 @@ import com.amoldalwai.diary.data.ActivityGroup
 import com.amoldalwai.diary.data.Mood
 import java.time.LocalDate
 
-/** Material icons an activity can use; anything not in here is shown as the emoji it was saved with. */
-val activityIcons: Map<String, ImageVector> = linkedMapOf(
-    "run" to Icons.Rounded.DirectionsRun, "walk" to Icons.Rounded.DirectionsWalk, "bike" to Icons.Rounded.DirectionsBike,
-    "gym" to Icons.Rounded.FitnessCenter, "sleep" to Icons.Rounded.Bedtime, "water" to Icons.Rounded.WaterDrop,
-    "meditate" to Icons.Rounded.SelfImprovement, "spa" to Icons.Rounded.Spa, "work" to Icons.Rounded.Work,
-    "study" to Icons.Rounded.School, "meeting" to Icons.Rounded.Groups, "read" to Icons.Rounded.MenuBook,
-    "computer" to Icons.Rounded.Computer, "family" to Icons.Rounded.FamilyRestroom, "friends" to Icons.Rounded.People,
-    "date" to Icons.Rounded.Favorite, "call" to Icons.Rounded.Call, "party" to Icons.Rounded.Cake,
-    "game" to Icons.Rounded.SportsEsports, "movie" to Icons.Rounded.Movie, "music" to Icons.Rounded.MusicNote,
-    "headphones" to Icons.Rounded.Headphones, "art" to Icons.Rounded.Brush, "cook" to Icons.Rounded.Restaurant,
-    "coffee" to Icons.Rounded.Coffee, "travel" to Icons.Rounded.Flight, "nature" to Icons.Rounded.Park,
-    "pet" to Icons.Rounded.Pets, "shop" to Icons.Rounded.ShoppingCart, "clean" to Icons.Rounded.CleaningServices,
-    "home" to Icons.Rounded.Home, "star" to Icons.Rounded.Star,
-)
-
 private data class NoteTemplate(val label: String, val text: String)
 
 private val templates = listOf(
@@ -116,12 +101,6 @@ private val templates = listOf(
     NoteTemplate("Brain dump", "Everything on my mind right now:\n\n"),
     NoteTemplate("Daily review", "Highlight of the day:\n\nA challenge I faced:\n\nTomorrow I will:\n"),
 )
-
-@Composable
-private fun ActivityIcon(icon: String, tint: Color) {
-    val vector = activityIcons[icon]
-    if (vector != null) Icon(vector, null, tint = tint, modifier = Modifier.size(24.dp)) else Text(icon, fontSize = 22.sp)
-}
 
 /**
  * The fast way to add an entry: optional mood, tap what you did (saved as the entry's tags), a short note with
@@ -334,10 +313,7 @@ private fun ActivityChip(icon: String, label: String, selected: Boolean, editing
     val colors = MaterialTheme.colorScheme
     Column(Modifier.width(64.dp).bouncyClick(onClick), horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
-            Box(
-                Modifier.size(48.dp).clip(CircleShape).background(if (selected) colors.primary else colors.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) { ActivityIcon(icon, if (selected) colors.onPrimary else colors.onPrimaryContainer) }
+            GlyphCircle(icon, selected, 52.dp)
             if (editing && onRemove != null) {
                 Box(
                     Modifier.align(Alignment.TopEnd).size(20.dp).bouncyClick(onRemove).clip(CircleShape).background(colors.error),
@@ -366,7 +342,6 @@ private fun AddActivityDialog(groupName: String, onDismiss: () -> Unit, onAdd: (
     val colors = MaterialTheme.colorScheme
     var name by remember { mutableStateOf("") }
     var iconKey by remember { mutableStateOf("star") }
-    var emoji by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add to $groupName") },
@@ -374,23 +349,11 @@ private fun AddActivityDialog(groupName: String, onDismiss: () -> Unit, onAdd: (
             Column(Modifier.verticalScroll(rememberScrollState())) {
                 OutlinedTextField(name, { name = it.take(16) }, singleLine = true, label = { Text("Name") })
                 Spacer(Modifier.height(14.dp))
-                Text("Icon", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                Spacer(Modifier.height(6.dp))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    activityIcons.forEach { (key, vector) ->
-                        val on = emoji.isBlank() && key == iconKey
-                        Box(
-                            Modifier.size(42.dp).bouncyClick { iconKey = key; emoji = "" }.clip(CircleShape).background(if (on) colors.primary else colors.primaryContainer),
-                            contentAlignment = Alignment.Center,
-                        ) { Icon(vector, key, tint = if (on) colors.onPrimary else colors.onPrimaryContainer, modifier = Modifier.size(22.dp)) }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                OutlinedTextField(emoji, { emoji = it.take(4) }, singleLine = true, label = { Text("Or type an emoji") })
+                IconPicker(iconKey) { iconKey = it }
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onAdd(Activity(name.trim(), emoji.trim().ifEmpty { iconKey })) }) { Text("Add") }
+            TextButton(enabled = name.isNotBlank(), onClick = { onAdd(Activity(name.trim(), iconKey)) }) { Text("Add") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

@@ -503,7 +503,7 @@ private fun HabitsCard(habitStats: List<HabitStat>, progress: Float, modifier: M
             habitStats.forEach { stat ->
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stat.habit.emoji, fontSize = 20.sp)
+                        Glyph(stat.habit.emoji, colors.primary, 22.dp)
                         Spacer(Modifier.width(8.dp))
                         Text(stat.habit.name, color = colors.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
                         Text("${(stat.doneLast30 / 30f * 100 * progress).roundToInt()}%", fontWeight = FontWeight.Bold, color = colors.primary, fontSize = 14.sp)

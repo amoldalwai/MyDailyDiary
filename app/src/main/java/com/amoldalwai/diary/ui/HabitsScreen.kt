@@ -38,7 +38,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Eco
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -62,10 +65,8 @@ import androidx.compose.ui.unit.sp
 import com.amoldalwai.diary.data.Habit
 import com.amoldalwai.diary.data.HabitStat
 
-private val habitEmojis = listOf("💪", "👟", "📖", "🧘", "💧", "😴", "🥗", "🏃", "🎨", "🎵", "🧹", "💊", "🙏", "✍️", "🚿", "🌿")
-
 private val habitSuggestions = listOf(
-    "Gym" to "💪", "10k steps" to "👟", "Read" to "📖", "Meditate" to "🧘", "Drink water" to "💧", "Sleep by 11" to "😴",
+    "Gym" to "gym", "10k steps" to "walk", "Read" to "read", "Meditate" to "meditate", "Drink water" to "water", "Sleep by 11" to "sleep",
 )
 
 /** Manage the habit list and see each habit's streaks and recent history. */
@@ -99,7 +100,9 @@ fun HabitsScreen(
 
             if (stats.isEmpty()) {
                 Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    Text("🌱", fontSize = 56.sp)
+                    Box(Modifier.size(72.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Eco, null, tint = colors.primary, modifier = Modifier.size(40.dp))
+                    }
                     Spacer(Modifier.height(12.dp))
                     Text("Build a habit", style = MaterialTheme.typography.titleLarge, color = colors.onBackground)
                     Spacer(Modifier.height(6.dp))
@@ -110,17 +113,19 @@ fun HabitsScreen(
                     )
                     Spacer(Modifier.height(20.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        habitSuggestions.forEach { (name, emoji) ->
-                            Text(
-                                "$emoji  $name",
-                                modifier = Modifier
-                                    .bouncyClick { onAdd(name, emoji) }
+                        habitSuggestions.forEach { (name, icon) ->
+                            Row(
+                                Modifier
+                                    .bouncyClick { onAdd(name, icon) }
                                     .clip(CircleShape)
                                     .background(colors.primaryContainer)
                                     .padding(horizontal = 14.dp, vertical = 9.dp),
-                                color = colors.onPrimaryContainer,
-                                fontSize = 14.sp,
-                            )
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Glyph(icon, colors.primary, 18.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(name, color = colors.onPrimaryContainer, fontSize = 14.sp)
+                            }
                         }
                     }
                 }
@@ -238,8 +243,17 @@ private fun WeekTable(stats: List<HabitStat>, onToggleToday: (String, Boolean) -
             Box(Modifier.fillMaxWidth().height(1.dp).background(colors.outline.copy(alpha = 0.25f)))
             Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.width(NAME_COLUMN).padding(end = 6.dp)) {
-                    Text("${stat.habit.emoji} ${stat.habit.name}", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colors.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    if (stat.currentStreak > 0) Text("🔥 ${stat.currentStreak}", fontSize = 11.sp, color = colors.onSurfaceVariant)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Glyph(stat.habit.emoji, colors.primary, 16.dp)
+                        Spacer(Modifier.width(5.dp))
+                        Text(stat.habit.name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = colors.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (stat.currentStreak > 0) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.LocalFireDepartment, null, tint = colors.primary, modifier = Modifier.size(13.dp))
+                            Text(" ${stat.currentStreak}", fontSize = 11.sp, color = colors.onSurfaceVariant)
+                        }
+                    }
                 }
                 weeks[row].forEachIndexed { i, done ->
                     val isToday = i == 6
@@ -302,17 +316,18 @@ private fun HabitStatCard(stat: HabitStat, onEdit: () -> Unit, modifier: Modifie
             .padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(44.dp).clip(CircleShape).background(colors.primaryContainer), contentAlignment = Alignment.Center) {
-                Text(stat.habit.emoji, fontSize = 22.sp)
-            }
+            GlyphCircle(stat.habit.emoji, false, 46.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(stat.habit.name, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, color = colors.onSurface)
-                Text(
-                    "🔥 ${stat.currentStreak} day streak · best ${stat.bestStreak}",
-                    fontSize = 13.sp,
-                    color = colors.onSurfaceVariant,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.LocalFireDepartment, null, tint = colors.primary, modifier = Modifier.size(15.dp))
+                    Text(
+                        " ${stat.currentStreak} day streak · best ${stat.bestStreak}",
+                        fontSize = 13.sp,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
             IconButton(onClick = onEdit) { Icon(Icons.Rounded.Edit, "Edit habit", tint = colors.onSurfaceVariant) }
         }
@@ -351,14 +366,14 @@ private fun HabitDialog(
     onDelete: (() -> Unit)?,
 ) {
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
-    var emoji by remember { mutableStateOf(initial?.emoji ?: habitEmojis.first()) }
+    var emoji by remember { mutableStateOf(IconCatalog.keyFor(initial?.emoji ?: "gym")) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (initial == null) "New habit" else "Edit habit") },
         text = {
-            Column {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it.take(28) },
@@ -367,18 +382,7 @@ private fun HabitDialog(
                     singleLine = true,
                 )
                 Spacer(Modifier.height(14.dp))
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    habitEmojis.forEach { option ->
-                        Box(
-                            Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(if (option == emoji) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { emoji = option },
-                            contentAlignment = Alignment.Center,
-                        ) { Text(option, fontSize = 20.sp) }
-                    }
-                }
+                IconPicker(emoji) { emoji = it }
                 if (onDelete != null) {
                     Spacer(Modifier.height(8.dp))
                     TextButton(onClick = { confirmDelete = true }) { Text("Delete habit", color = MaterialTheme.colorScheme.error) }

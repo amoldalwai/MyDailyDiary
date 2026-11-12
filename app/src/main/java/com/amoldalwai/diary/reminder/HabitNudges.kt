@@ -128,7 +128,7 @@ object HabitNudges {
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_monochrome)
-            .setContentTitle("${habit.emoji} ${habit.name}")
+            .setContentTitle(habit.name)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setContentIntent(open)

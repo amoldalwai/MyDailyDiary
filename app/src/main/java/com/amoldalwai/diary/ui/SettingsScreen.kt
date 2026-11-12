@@ -537,7 +537,11 @@ private fun NudgeSettings(
             val custom = nudge.from >= 0 && nudge.to >= 0
             Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${habit.emoji}  ${habit.name}", color = colors.onSurface, modifier = Modifier.weight(1f))
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Glyph(habit.emoji, colors.primary, 20.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(habit.name, color = colors.onSurface)
+                    }
                     Switch(checked = nudge.on, onCheckedChange = { onHabitNudge(habit.id, nudge.copy(on = it)) })
                 }
                 if (nudge.on) {

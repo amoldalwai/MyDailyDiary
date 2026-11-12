@@ -263,7 +263,7 @@ fun HabitChips(
                             .padding(horizontal = 14.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(habit.emoji, fontSize = 16.sp)
+                        Glyph(habit.emoji, if (done) onAccent else ink, 18.dp)
                         Spacer(Modifier.width(6.dp))
                         Text(habit.name, color = if (done) onAccent else ink, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         if (done) {

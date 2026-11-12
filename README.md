@@ -69,7 +69,7 @@
 - A **?** button on the screen explains how it all works.
 
 ### 📚 Library
-- **Books** (Open Library), **Games** (Steam and Wikipedia) and **Movies & Series** (Wikipedia and TVMaze), with posters, shelves, ratings out of 10 and short reviews.
+- **Books** (Open Library), **Games** (Steam and Wikipedia) and **Movies & Series** (Wikipedia and TVMaze), with posters, genres, shelves, ratings out of 10 and short reviews.
 - **Search across the whole library** from one box.
 - **No duplicates**: adding a title you already have reuses it.
 - **Attach items to journal pages**: a Books · Movies · Games block at the bottom of every note and Quick Add, with status chips that update your library.

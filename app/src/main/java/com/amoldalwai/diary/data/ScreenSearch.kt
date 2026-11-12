@@ -31,6 +31,31 @@ object ScreenSearch {
     private val tvWords = Regex("series|sitcom|soap opera|telenovela|drama|miniseries|anime|\\bshow\\b|serial|web", RegexOption.IGNORE_CASE)
     private val notTv = Regex("wrestling|talk show|news|podcast|franchise", RegexOption.IGNORE_CASE)
 
+    // The lead sentence of a film article names its genres: "Inception is a 2010 science fiction heist film written by ...".
+    private val filmClause = Regex("\\b(?:is|was)\\s+(?:an?|the)\\s+(.+?)\\s+(?:film|movie)\\b", RegexOption.IGNORE_CASE)
+    private val genreWords = listOf(
+        "romantic comedy" to "Romantic comedy", "black comedy" to "Dark comedy", "science fiction|sci-fi" to "Sci-fi",
+        "martial arts" to "Martial arts", "coming-of-age" to "Coming-of-age", "action" to "Action", "adventure" to "Adventure",
+        "animated|animation|anime" to "Animation", "biographical|biopic" to "Biography", "comedy" to "Comedy", "crime" to "Crime",
+        "disaster" to "Disaster", "documentary|docudrama" to "Documentary", "drama" to "Drama", "epic" to "Epic", "family" to "Family",
+        "fantasy" to "Fantasy", "heist" to "Heist", "historical|period" to "Historical", "horror" to "Horror", "musical" to "Musical",
+        "mystery" to "Mystery", "mythological" to "Mythological", "political" to "Political", "romance|romantic" to "Romance",
+        "satire|satirical" to "Satire", "spy" to "Spy", "sports?" to "Sports", "superhero" to "Superhero", "supernatural" to "Supernatural",
+        "thriller" to "Thriller", "war" to "War", "western" to "Western",
+    ).map { (words, label) -> Regex("\\b(?:$words)\\b") to label }
+
+    /** Up to three genres in the order the article lists them, or empty when the sentence names none. */
+    internal fun genresFrom(extract: String): List<String> {
+        var clause = filmClause.find(extract.replace("\n", " "))?.groupValues?.get(1)?.lowercase() ?: return emptyList()
+        val found = mutableListOf<Pair<Int, String>>()
+        for ((pattern, label) in genreWords) {
+            val hit = pattern.find(clause) ?: continue
+            found += hit.range.first to label
+            clause = clause.replaceRange(hit.range, " ".repeat(hit.value.length))
+        }
+        return found.sortedBy { it.first }.map { it.second }.distinct().take(3)
+    }
+
     suspend fun search(query: String): List<WatchResult> = coroutineScope {
         val films = async { runCatching { wikipedia(query, "Infobox film", WatchKind.Movie) } }
         val maze = async { runCatching { tvMaze(query) } }
@@ -71,7 +96,8 @@ object ScreenSearch {
     private suspend fun wikipediaQuery(searchTerm: String, kind: WatchKind): List<WatchResult> = withContext(Dispatchers.IO) {
         val term = URLEncoder.encode(searchTerm, "UTF-8")
         val url = "https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=$term&gsrlimit=10" +
-            "&prop=pageprops%7Cdescription&ppprop=page_image%7Cpage_image_free&format=json&formatversion=2"
+            "&prop=pageprops%7Cdescription%7Cextracts&ppprop=page_image%7Cpage_image_free&exintro=1&exsentences=1&explaintext=1&exlimit=20" +
+            "&format=json&formatversion=2"
         val pages = JSONObject(String(WikipediaGames.get(url))).optJSONObject("query")?.optJSONArray("pages") ?: return@withContext emptyList()
         List(pages.length()) { pages.getJSONObject(it) }
             .sortedBy { it.optInt("index") }
@@ -86,7 +112,12 @@ object ScreenSearch {
                     kind = kind,
                     title = rawTitle.replace(trailingBrackets, ""),
                     year = (yearPattern.find(description) ?: yearPattern.find(rawTitle))?.value?.toInt(),
-                    info = if (kind == WatchKind.Movie) directedBy.find(description)?.groupValues?.get(1).orEmpty() else description,
+                    info = if (kind == WatchKind.Movie) {
+                        (genresFrom(page.optString("extract")) + listOfNotNull(directedBy.find(description)?.groupValues?.get(1)?.ifBlank { null }))
+                            .joinToString(" \u00b7 ")
+                    } else {
+                        description
+                    },
                     coverUrl = cover,
                     thumbUrl = cover,
                     source = "Wikipedia",

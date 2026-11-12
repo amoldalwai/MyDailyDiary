@@ -96,6 +96,7 @@ dependencies {
     implementation(libs.coil.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
     add("mockImplementation", libs.androidx.compose.ui.test.manifest)
+    testImplementation("junit:junit:4.13.2")
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)

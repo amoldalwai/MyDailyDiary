@@ -61,14 +61,14 @@
 - **This week** tab: habits as rows and the last 7 days as columns, in one glance.
 - **Habit nudges**: one friendly question at a time ("Did you complete Gym today?", "Don't break your 5-day streak of Read 🔥"), spaced through a time window you choose. Each habit can be switched off or given its own window, and a **Done** button on the notification ticks it without opening the app. A habit you've done is not asked again that day.
 
-### � Exercise
+### 💪 Exercise
 - Tap the **muscles you trained today** (Chest, Shoulders, Legs, Triceps, Biceps, Abs, Back, Forearms, Glutes) and see how long since each was last trained.
 - **Make it yours**: set a weekly goal, a target for each muscle, and add or remove muscles with your own name and icon.
 - **Weekly streaks**: an overall streak for weeks you hit your goal and a streak per muscle for weeks it hit its target. Rest days never break a streak.
 - **Progress** and **This week** tabs with a weekly bar chart and a Monday to Sunday grid. Past days are read-only.
 - A **?** button on the screen explains how it all works.
 
-### �📚 Library
+### 📚 Library
 - **Books** (Open Library), **Games** (Steam and Wikipedia) and **Movies & Series** (Wikipedia and TVMaze), with posters, shelves, ratings out of 10 and short reviews.
 - **Search across the whole library** from one box.
 - **No duplicates**: adding a title you already have reuses it.

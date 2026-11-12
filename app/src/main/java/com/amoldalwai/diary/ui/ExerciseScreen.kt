@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -90,6 +91,7 @@ private val Amber = Color(0xFFC98A1B)
 private enum class DotState { Done, Rest, Today, Missed, Future }
 
 
+
 /** Log the muscles trained today, follow a weekly streak, and see progress; the same shape as Daily habits. */
 @Composable
 fun ExerciseScreen(
@@ -109,6 +111,7 @@ fun ExerciseScreen(
     val stats = remember(data, weeklyGoal) { ExerciseMath.stats(data, weeklyGoal, today) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var editing by remember { mutableStateOf(false) }
+    var help by remember { mutableStateOf(false) }
     val subtitle = when (tab) {
         0 -> "Tap the muscles you trained today"
         1 -> "Your progress"
@@ -125,6 +128,7 @@ fun ExerciseScreen(
                     Text(subtitle, fontSize = 13.sp, color = colors.onSurfaceVariant)
                 }
                 IconButton(onClick = { editing = true }) { Icon(Icons.Rounded.Edit, "Edit muscles", tint = colors.primary) }
+                IconButton(onClick = { help = true }) { Icon(Icons.AutoMirrored.Rounded.HelpOutline, "How to use Exercise", tint = colors.primary) }
             }
             ExerciseTabs(tab) { tab = it }
             Column(
@@ -140,6 +144,8 @@ fun ExerciseScreen(
         }
     }
 
+    if (help) HelpDialog { help = false }
+
     if (editing) {
         EditSheet(
             muscles = data.muscles,
@@ -151,6 +157,33 @@ fun ExerciseScreen(
             onGoal = onGoal,
         )
     }
+}
+
+@Composable
+private fun HelpDialog(onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val steps = listOf(
+        "Log a workout" to "On Today, tap each muscle you trained. Tap it again to undo. Only today can be changed; earlier days are a record.",
+        "Set it up" to "Tap the pencil. Set your weekly goal (days with a workout), a target for each muscle (times a week), add your own muscles with a name and icon, or remove ones you don't train.",
+        "Rest days" to "Tap Rest day when you're recovering. Rest days never break a streak.",
+        "Streaks" to "A week counts when you reach your goal. Each muscle has its own streak for weeks it reached its target. The current week can't break a streak until it ends.",
+        "Reading the screens" to "Today shows days since each muscle was last trained, in amber after 7 days. Progress shows weekly bars and per-muscle streaks. This week shows Monday to Sunday.",
+    )
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("How Exercise works", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                steps.forEach { (title, body) ->
+                    Column {
+                        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = colors.primary)
+                        Text(body, fontSize = 14.sp, lineHeight = 20.sp, color = colors.onSurfaceVariant)
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Got it") } },
+    )
 }
 
 @Composable

@@ -374,6 +374,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                             TourAction.AddEntry -> vm.openQuickAdd()
                             TourAction.AddMovie -> vm.openHub(Screen.Watch)
                             TourAction.AddHabit -> vm.openHub(Screen.Habits)
+                            TourAction.OpenExercise -> vm.openHub(Screen.Exercise)
                         }
                     },
                 )

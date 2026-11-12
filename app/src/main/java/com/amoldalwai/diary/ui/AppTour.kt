@@ -72,7 +72,7 @@ object TourTargets {
 fun Modifier.tourTarget(id: String): Modifier = onGloballyPositioned { TourTargets.bounds[id] = it.boundsInRoot() }
 
 /** What a "Try it" button does: it ends the tour and opens the matching feature. */
-enum class TourAction { AddEntry, AddMovie, AddHabit }
+enum class TourAction { AddEntry, AddMovie, AddHabit, OpenExercise }
 
 class TourStep(val target: String?, val title: String, val body: String, val tryLabel: String? = null, val action: TourAction? = null)
 
@@ -95,6 +95,11 @@ val tourSteps = listOf(
         "nav_more", "Habits, insights and settings",
         "Add daily habits and see this week's table, check your insights, and change colours, reminders and nudges.",
         "Try it: add a habit", TourAction.AddHabit,
+    ),
+    TourStep(
+        "nav_more", "Exercise",
+        "Also under More. Tap the muscles you trained today, set a weekly goal and a target for each muscle, and keep a weekly streak. Tap ? on that screen for a quick guide.",
+        "Try it: open Exercise", TourAction.OpenExercise,
     ),
     TourStep(null, "You're all set", "You can replay this tour any time from Settings, under How to guide."),
 )

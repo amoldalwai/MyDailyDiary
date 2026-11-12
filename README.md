@@ -4,7 +4,7 @@
 
 # LifeLoom
 
-**Weave your days together: a private journal, habit tracker and personal library in one calm Android app.**
+**Weave your days together: a private journal, habit tracker, exercise log and personal library in one calm Android app.**
 
 [![Download APK](https://img.shields.io/badge/⬇_Download-APK-E8806A?style=for-the-badge&logo=android&logoColor=white)](https://github.com/amoldalwai/MyDailyDiary/releases/latest/download/MyDailyDiary.apk)
 [![Latest release](https://img.shields.io/github/v/release/amoldalwai/MyDailyDiary?style=for-the-badge&color=C9566B&label=version)](https://github.com/amoldalwai/MyDailyDiary/releases/latest)
@@ -33,6 +33,14 @@
     <td align="center"><img src="docs/screenshots/profile.png" width="250" alt="Profile" /><br /><b>Profile</b><br />Level, rank, medals and awards</td>
     <td align="center"><img src="docs/screenshots/path.png" width="250" alt="Level journey" /><br /><b>Level journey</b><br />A map of 50 levels across 10 ranks</td>
   </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/exercise_today.png" width="250" alt="Exercise, today" /><br /><b>Exercise, today</b><br />Tap the muscles you trained</td>
+    <td align="center"><img src="docs/screenshots/exercise_progress.png" width="250" alt="Exercise progress" /><br /><b>Exercise progress</b><br />Week streak and per-muscle streaks</td>
+    <td align="center"><img src="docs/screenshots/exercise_week.png" width="250" alt="Exercise, this week" /><br /><b>Exercise, this week</b><br />Monday to Sunday at a glance</td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/exercise_help.png" width="250" alt="Exercise help" /><br /><b>Built-in guide</b><br />Tap ? on the Exercise screen</td>
+  </tr>
 </table>
 
 ## ✨ Features
@@ -53,7 +61,14 @@
 - **This week** tab: habits as rows and the last 7 days as columns, in one glance.
 - **Habit nudges**: one friendly question at a time ("Did you complete Gym today?", "Don't break your 5-day streak of Read 🔥"), spaced through a time window you choose. Each habit can be switched off or given its own window, and a **Done** button on the notification ticks it without opening the app. A habit you've done is not asked again that day.
 
-### 📚 Library
+### � Exercise
+- Tap the **muscles you trained today** (Chest, Shoulders, Legs, Triceps, Biceps, Abs, Back, Forearms, Glutes) and see how long since each was last trained.
+- **Make it yours**: set a weekly goal, a target for each muscle, and add or remove muscles with your own name and icon.
+- **Weekly streaks**: an overall streak for weeks you hit your goal and a streak per muscle for weeks it hit its target. Rest days never break a streak.
+- **Progress** and **This week** tabs with a weekly bar chart and a Monday to Sunday grid. Past days are read-only.
+- A **?** button on the screen explains how it all works.
+
+### �📚 Library
 - **Books** (Open Library), **Games** (Steam and Wikipedia) and **Movies & Series** (Wikipedia and TVMaze), with posters, shelves, ratings out of 10 and short reviews.
 - **Search across the whole library** from one box.
 - **No duplicates**: adding a title you already have reuses it.

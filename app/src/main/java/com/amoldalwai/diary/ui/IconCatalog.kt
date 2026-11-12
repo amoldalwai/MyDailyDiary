@@ -125,13 +125,31 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import com.amoldalwai.diary.R
+
 class IconGroup(val name: String, val icons: List<Pair<String, ImageVector>>)
+
+/** The nine muscle pictures traced from the workout icon sheet; saved keys start with `muscle_`. */
+object MuscleArt {
+    val ids: Map<String, Int> = linkedMapOf(
+        "muscle_chest" to R.drawable.muscle_chest, "muscle_shoulders" to R.drawable.muscle_shoulders, "muscle_legs" to R.drawable.muscle_legs,
+        "muscle_triceps" to R.drawable.muscle_triceps, "muscle_biceps" to R.drawable.muscle_biceps, "muscle_abs" to R.drawable.muscle_abs,
+        "muscle_back" to R.drawable.muscle_back, "muscle_forearms" to R.drawable.muscle_forearms, "muscle_glutes" to R.drawable.muscle_glutes,
+    )
+}
+
+@Composable
+private fun glyphPainter(saved: String): Painter =
+    MuscleArt.ids[saved]?.let { painterResource(it) } ?: rememberVectorPainter(IconCatalog.vectorFor(saved))
 
 /** Every icon a habit or an activity can use, in picker order. Keys are what gets saved, so they never change. */
 object IconCatalog {
@@ -226,7 +244,7 @@ object IconCatalog {
 /** Just the glyph, in one colour. */
 @Composable
 fun Glyph(saved: String, tint: Color, size: Dp = 20.dp, modifier: Modifier = Modifier) {
-    Icon(IconCatalog.vectorFor(saved), contentDescription = null, tint = tint, modifier = modifier.size(size))
+    Icon(glyphPainter(saved), contentDescription = null, tint = tint, modifier = modifier.size(size))
 }
 
 /**
@@ -252,10 +270,10 @@ fun GlyphCircle(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            IconCatalog.vectorFor(saved),
+            glyphPainter(saved),
             contentDescription = null,
             tint = if (selected) onAccent else idleGlyph,
-            modifier = Modifier.size(size * 0.54f),
+            modifier = Modifier.size(size * if (saved in MuscleArt.ids) 0.6f else 0.54f),
         )
     }
 }

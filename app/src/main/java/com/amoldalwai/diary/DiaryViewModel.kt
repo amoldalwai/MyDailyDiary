@@ -17,6 +17,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.amoldalwai.diary.data.DayMarker
+import com.amoldalwai.diary.data.ExerciseData
+import com.amoldalwai.diary.data.ExerciseMath
+import com.amoldalwai.diary.data.ExerciseRepository
+import com.amoldalwai.diary.data.Muscle
 import com.amoldalwai.diary.data.FinishInfo
 import com.amoldalwai.diary.data.ActivityGroup
 import com.amoldalwai.diary.data.Book
@@ -88,6 +92,7 @@ sealed interface Screen {
     data object Profile : Screen
     data object LevelPath : Screen
     data object About : Screen
+    data object Exercise : Screen
     data class Detail(val id: String) : Screen
     data class Editor(val entry: DiaryEntry, val isNew: Boolean) : Screen
 }
@@ -97,7 +102,7 @@ fun Screen.isTab() = this is Screen.Home || this is Screen.Journal || this is Sc
 fun Screen.isHub() =
     this is Screen.Calendar || this is Screen.Search || this is Screen.Insights || this is Screen.Settings ||
         this is Screen.Album || this is Screen.Habits || this is Screen.Books || this is Screen.Games || this is Screen.Watch ||
-        this is Screen.Profile || this is Screen.LevelPath || this is Screen.About
+        this is Screen.Profile || this is Screen.LevelPath || this is Screen.About || this is Screen.Exercise
 
 /** A one-off "you finished something" moment: confetti, a chime and a banner. */
 data class Celebration(val token: Int, val message: String)
@@ -113,6 +118,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private val booksRepo = BooksRepository(app)
     private val gamesRepo = GamesRepository(app)
     private val watchRepo = WatchRepository(app)
+    private val exerciseRepo = ExerciseRepository(app)
     private val hero = HomeHero(app)
     private val pendingImages = mutableSetOf<String>()
 
@@ -620,6 +626,75 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         onDone(id)
     }
 
+    // ---- Exercise ----
+
+    var exercise by mutableStateOf(ExerciseData())
+        private set
+
+    fun loadExercise() {
+        viewModelScope.launch {
+            if (!settings.exerciseSeeded) {
+                settings.exerciseSeeded = true
+                ExerciseMath.defaults.forEachIndexed { i, (name, icon, target) ->
+                    exerciseRepo.save(Muscle(name = name, icon = icon, target = target, position = i))
+                }
+            }
+            exercise = exerciseRepo.load()
+        }
+    }
+
+    /** Only today can be changed; earlier days are a record. */
+    fun toggleMuscle(id: String) {
+        val today = LocalDate.now().toEpochDay()
+        val trained = (id to today) in exercise.logs
+        viewModelScope.launch {
+            exerciseRepo.setTrained(id, today, !trained)
+            exercise = exerciseRepo.load()
+        }
+    }
+
+    fun toggleRestToday() {
+        val today = LocalDate.now().toEpochDay()
+        val rest = today in exercise.restDays
+        if (!rest && exercise.logs.any { it.second == today }) return
+        viewModelScope.launch {
+            exerciseRepo.setRest(today, !rest)
+            exercise = exerciseRepo.load()
+        }
+    }
+
+    fun addMuscle(name: String, icon: String, target: Int) {
+        val clean = name.trim()
+        if (clean.isEmpty()) return
+        if (exercise.muscles.any { it.name.equals(clean, ignoreCase = true) }) {
+            Toast.makeText(getApplication(), "$clean is already in your list", Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewModelScope.launch {
+            if (!exerciseRepo.restore(clean)) {
+                val next = (exercise.muscles.maxOfOrNull { it.position } ?: -1) + 1
+                exerciseRepo.save(Muscle(name = clean, icon = icon, target = target, position = next))
+            }
+            exercise = exerciseRepo.load()
+        }
+    }
+
+    fun updateMuscle(muscle: Muscle) {
+        viewModelScope.launch {
+            exerciseRepo.save(muscle)
+            exercise = exerciseRepo.load()
+        }
+    }
+
+    fun removeMuscle(id: String) {
+        viewModelScope.launch {
+            exerciseRepo.remove(id)
+            exercise = exerciseRepo.load()
+        }
+    }
+
+    fun setWeeklyGoal(days: Int) = settings.updateWeeklyGoal(days)
+
     // ---- Books ----
 
     fun loadBookDay(date: LocalDate) {
@@ -981,6 +1056,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             Screen.Album -> loadAlbum()
             Screen.Settings -> loadStorage()
             Screen.Habits -> loadHabitStats()
+            Screen.Exercise -> loadExercise()
             Screen.Books -> viewModelScope.launch { books = booksRepo.books() }
             Screen.Games -> viewModelScope.launch { games = gamesRepo.games() }
             Screen.Watch -> viewModelScope.launch { watchItems = watchRepo.items() }

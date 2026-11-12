@@ -123,6 +123,20 @@ class SettingsStore(context: Context) {
     var habitSound by mutableStateOf(prefs.getBoolean("habitSound", true))
         private set
 
+    /** Workout days wanted per week; a week counts toward the exercise streak when it reaches this. */
+    var weeklyGoal by mutableIntStateOf(prefs.getInt("weeklyGoal", 3))
+        private set
+
+    fun updateWeeklyGoal(days: Int) {
+        weeklyGoal = days.coerceIn(1, 7)
+        prefs.edit().putInt("weeklyGoal", weeklyGoal).apply()
+    }
+
+    /** The first nine muscles are added once; after that the list belongs to the user. */
+    var exerciseSeeded: Boolean
+        get() = prefs.getBoolean("exerciseSeeded", false)
+        set(value) = prefs.edit().putBoolean("exerciseSeeded", value).apply()
+
     // Habit nudges: one question about one habit at a time, spaced out inside a daily window (minutes after midnight).
     var nudgesEnabled by mutableStateOf(prefs.getBoolean("nudgesOn", false))
         private set

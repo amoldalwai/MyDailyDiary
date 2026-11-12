@@ -292,18 +292,18 @@ private fun WeekTable(stats: List<HabitStat>, onToggleToday: (String, Boolean) -
 }
 
 /** The streak flame is always orange, whatever the theme colour. */
-private val FlameOrange = Color(0xFFFF7A1A)
+internal val FlameOrange = Color(0xFFFF7A1A)
 
-/** Flame and day count in a soft orange pill. */
+/** Flame and count in a soft orange pill; [suffix] is a unit such as "w" for weeks. */
 @Composable
-private fun StreakChip(days: Int) {
+internal fun StreakChip(days: Int, suffix: String = "") {
     Row(
         Modifier.clip(CircleShape).background(FlameOrange.copy(alpha = 0.14f)).padding(start = 7.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Rounded.LocalFireDepartment, "Streak", tint = FlameOrange, modifier = Modifier.size(17.dp))
         Spacer(Modifier.width(3.dp))
-        Text("$days", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FlameOrange)
+        Text("$days$suffix", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FlameOrange)
     }
 }
 

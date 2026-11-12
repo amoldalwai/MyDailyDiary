@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.amoldalwai.diary.util.RichText
 
-class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 10) {
+class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 11) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -52,6 +52,17 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         addReviewColumns(db)
         createWatch(db)
         addFinishedYearColumns(db)
+        createExercise(db)
+    }
+
+    private fun createExercise(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS muscles (id TEXT PRIMARY KEY, name TEXT NOT NULL, icon TEXT NOT NULL, target INTEGER NOT NULL DEFAULT 1, " +
+                "position INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, deleted INTEGER NOT NULL DEFAULT 0)",
+        )
+        db.execSQL("CREATE TABLE IF NOT EXISTS muscle_logs (muscle_id TEXT NOT NULL, date_epoch INTEGER NOT NULL, PRIMARY KEY (muscle_id, date_epoch))")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_muscle_logs_date ON muscle_logs(date_epoch)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS rest_days (date_epoch INTEGER PRIMARY KEY)")
     }
 
     /** The year something was finished when the exact day isn't known; safe to run on any schema version. */
@@ -205,6 +216,7 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
             db.execSQL("UPDATE entries SET mood = 'VeryHappy' WHERE mood = 'Loved'")
             db.execSQL("UPDATE entries SET mood = 'Stressed' WHERE mood = 'Anxious'")
         }
+        if (oldVersion < 11) createExercise(db)
     }
 
     /** Version 1 stored bold/italic as `**`/`*` markers inside the body. */

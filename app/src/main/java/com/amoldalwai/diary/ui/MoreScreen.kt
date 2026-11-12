@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.TaskAlt
 import androidx.compose.material3.Icon
@@ -44,6 +45,7 @@ fun MoreScreen(
     entryCount: Int,
     onInsights: () -> Unit,
     onHabits: () -> Unit,
+    onExercise: () -> Unit,
     onSettings: () -> Unit,
     onAbout: () -> Unit,
     profileName: String,
@@ -67,6 +69,8 @@ fun MoreScreen(
             MoreRow(Icons.Rounded.BarChart, "Insights", "Streaks, moods and your last 8 weeks", Modifier.staggeredEntrance(1), onInsights)
             Spacer(Modifier.height(12.dp))
             MoreRow(Icons.Rounded.TaskAlt, "Daily habits", "Add habits and see your streaks", Modifier.staggeredEntrance(2), onHabits)
+            Spacer(Modifier.height(12.dp))
+            MoreRow(Icons.Rounded.FitnessCenter, "Exercise", "Log the muscles you train and keep a weekly streak", Modifier.staggeredEntrance(2), onExercise)
             Spacer(Modifier.height(12.dp))
             MoreRow(Icons.Rounded.Settings, "Settings", "Colours, lock, reminders and sections", Modifier.staggeredEntrance(3), onSettings)
             Spacer(Modifier.height(12.dp))

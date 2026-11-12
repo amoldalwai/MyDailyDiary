@@ -136,6 +136,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     entryCount = vm.homeStats.total,
                     onInsights = { vm.openHub(Screen.Insights) },
                     onHabits = { vm.openHub(Screen.Habits) },
+                    onExercise = { vm.openHub(Screen.Exercise) },
                     onSettings = { vm.openHub(Screen.Settings) },
                     onAbout = { vm.openHub(Screen.About) },
                     profileName = vm.settings.profileName,
@@ -162,6 +163,18 @@ fun DiaryApp(vm: DiaryViewModel) {
                 )
 
                 Screen.About -> AboutScreen(onBack = vm::goBack)
+
+                Screen.Exercise -> ExerciseScreen(
+                    data = vm.exercise,
+                    weeklyGoal = vm.settings.weeklyGoal,
+                    onToggleMuscle = vm::toggleMuscle,
+                    onToggleRest = vm::toggleRestToday,
+                    onAddMuscle = vm::addMuscle,
+                    onUpdateMuscle = vm::updateMuscle,
+                    onRemoveMuscle = vm::removeMuscle,
+                    onGoal = vm::setWeeklyGoal,
+                    onBack = vm::goBack,
+                )
 
                 Screen.LevelPath -> LevelPathScreen(
                     level = vm.level,

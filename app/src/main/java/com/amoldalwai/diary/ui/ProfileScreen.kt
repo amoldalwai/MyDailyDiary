@@ -128,6 +128,9 @@ fun ProfileScreen(
     onPickPhoto: (android.net.Uri) -> Unit,
     onClearPhoto: () -> Unit,
     onJourney: () -> Unit,
+    wallet: Int,
+    pokemonEnabled: Boolean,
+    onShop: () -> Unit,
     onBack: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -212,6 +215,9 @@ fun ProfileScreen(
                         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = colors.onPrimaryContainer)
                     }
                 }
+
+                Spacer(Modifier.height(14.dp))
+                PointsCard(wallet, pokemonEnabled, onShop)
 
                 Spacer(Modifier.height(14.dp))
                 val earned = statuses.sumOf { s -> tierOf(s)?.let { it.ordinal + 1 } ?: 0 }
@@ -433,5 +439,29 @@ private fun StatLine(label: String, value: Int, rule: String) {
         }
         Spacer(Modifier.width(8.dp))
         Text("$value", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = colors.onSurface)
+    }
+}
+
+/** Points you can spend on Poké Balls; different from XP, which only ever goes up and sets your level. */
+@Composable
+private fun PointsCard(wallet: Int, shopEnabled: Boolean, onShop: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        Modifier.fillMaxWidth().clip(shape).background(colors.surface).border(BorderStroke(1.dp, colors.outline.copy(alpha = 0.5f)), shape)
+            .then(if (shopEnabled) Modifier.bouncyClick(onShop) else Modifier).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PointsCoin(46.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(java.lang.String.format(java.util.Locale.US, "%,d points", wallet), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = colors.onSurface)
+            Text(
+                if (shopEnabled) "Spend them on Poké Balls to find Pokémon" else "Points you earn from everything you do",
+                fontSize = 12.sp,
+                color = colors.onSurfaceVariant,
+            )
+        }
+        if (shopEnabled) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = colors.onSurfaceVariant)
     }
 }

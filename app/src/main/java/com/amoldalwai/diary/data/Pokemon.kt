@@ -32,18 +32,8 @@ data class CaughtPokemon(
     val caughtAt: Long,
 )
 
-/** Which Pokémon belong to which level: three per level, in Pokédex order, so 50 levels reach #150. */
+/** Names shown on cards and tiles. */
 object PokemonMath {
-    const val PER_LEVEL = 3
-    const val PAGE_LEVELS = 5
-    val total get() = PER_LEVEL * Progress.MAX_LEVEL
-    val pages get() = Progress.MAX_LEVEL / PAGE_LEVELS
-
-    fun idsFor(level: Int): IntRange = ((level - 1) * PER_LEVEL + 1)..(level * PER_LEVEL)
-    fun levelOf(id: Int): Int = (id - 1) / PER_LEVEL + 1
-    fun pageOf(level: Int): Int = (level - 1) / PAGE_LEVELS
-    fun levelsOnPage(page: Int): IntRange = (page * PAGE_LEVELS + 1)..minOf(Progress.MAX_LEVEL, (page + 1) * PAGE_LEVELS)
-
     fun pretty(raw: String?): String = when {
         raw.isNullOrEmpty() -> "???"
         raw == "nidoran-f" -> "Nidoran ♀"
@@ -60,9 +50,9 @@ object PokemonMath {
 object PokeApi {
     private const val API = "https://pokeapi.co/api/v2"
     private const val SPRITES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon"
+    private const val PICTURE_PX = 192
+    private const val PICTURE_QUALITY = 65
 
-    /** 96 px sprite, about half a kilobyte; used in the level tree. */
-    fun spriteUrl(id: Int) = "$SPRITES/$id.png"
     private fun artworkUrl(id: Int) = "$SPRITES/other/official-artwork/$id.png"
 
     fun isOnline(context: Context): Boolean {
@@ -71,18 +61,7 @@ object PokeApi {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    /** Names for the Pokédex numbers [offset]+1 .. [offset]+[limit]. */
-    suspend fun names(offset: Int, limit: Int): Map<Int, String> = withContext(Dispatchers.IO) {
-        val results = JSONObject(String(get("$API/pokemon?limit=$limit&offset=$offset"))).getJSONArray("results")
-        buildMap {
-            for (i in 0 until results.length()) {
-                val r = results.getJSONObject(i)
-                put(r.getString("url").trimEnd('/').substringAfterLast('/').toInt(), r.getString("name"))
-            }
-        }
-    }
-
-    /** Downloads one Pokémon and its picture, shrunk to 256 px. Throws when anything is missing or the network fails. */
+    /** Downloads one Pokémon and its picture, shrunk to a small lossy WebP (192 px). Throws when anything is missing or the network fails. */
     suspend fun fetch(id: Int, level: Int): Pair<CaughtPokemon, ByteArray> = withContext(Dispatchers.IO) {
         val p = JSONObject(String(get("$API/pokemon/$id")))
         val s = JSONObject(String(get("$API/pokemon-species/$id")))
@@ -116,8 +95,8 @@ object PokeApi {
 
     private fun shrink(png: ByteArray): ByteArray {
         val source = BitmapFactory.decodeByteArray(png, 0, png.size) ?: throw IOException("Unreadable picture")
-        val scaled = if (source.width > 256) Bitmap.createScaledBitmap(source, 256, 256 * source.height / source.width, true) else source
-        return java.io.ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.WEBP_LOSSY, 82, it) }.toByteArray()
+        val scaled = if (source.width > PICTURE_PX) Bitmap.createScaledBitmap(source, PICTURE_PX, PICTURE_PX * source.height / source.width, true) else source
+        return java.io.ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.WEBP_LOSSY, PICTURE_QUALITY, it) }.toByteArray()
     }
 
     private fun <T> JSONArray.map(transform: (JSONObject) -> T): List<T> = List(length()) { transform(getJSONObject(it)) }
@@ -143,15 +122,16 @@ class PokemonRepository(context: Context) {
 
     fun imageFile(id: Int) = File(dir, "$id.webp")
 
-    /** Earlier builds saved a sound file per Pokémon; there is no sound any more, so clear them out. */
-    suspend fun removeSounds() = withContext(Dispatchers.IO) {
-        dir.listFiles { f -> f.extension == "ogg" }?.forEach { it.delete() }
+    /** The Poké Ball draw replaced the level unlocks, so everything caught the old way (and its larger pictures) is cleared once. */
+    suspend fun clearAll() = withContext(Dispatchers.IO) {
+        db.delete("pokemon", null, null)
+        dir.listFiles()?.forEach { it.delete() }
     }
 
     suspend fun caught(): List<CaughtPokemon> = withContext(Dispatchers.IO) {
         buildList {
             db.rawQuery(
-                "SELECT id, name, types, stats, height, weight, ability, genus, flavor, legendary, caught_level, caught_at FROM pokemon ORDER BY id DESC",
+                "SELECT id, name, types, stats, height, weight, ability, genus, flavor, legendary, caught_level, caught_at FROM pokemon ORDER BY caught_at DESC",
                 null,
             ).use {
                 while (it.moveToNext()) {

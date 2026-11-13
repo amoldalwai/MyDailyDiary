@@ -20,7 +20,10 @@ import com.amoldalwai.diary.data.DayMarker
 import com.amoldalwai.diary.data.ExerciseData
 import com.amoldalwai.diary.data.CaughtPokemon
 import com.amoldalwai.diary.data.PokeApi
-import com.amoldalwai.diary.data.PokemonMath
+import com.amoldalwai.diary.data.BallDef
+import com.amoldalwai.diary.data.PokeballConfig
+import com.amoldalwai.diary.data.Pokedex
+import com.amoldalwai.diary.data.Rarity
 import com.amoldalwai.diary.data.PokemonRepository
 import com.amoldalwai.diary.data.ExerciseMath
 import com.amoldalwai.diary.data.ExerciseRepository
@@ -97,7 +100,7 @@ sealed interface Screen {
     data object LevelPath : Screen
     data object About : Screen
     data object Exercise : Screen
-    data object PokemonTree : Screen
+    data object PokeballShop : Screen
     data object Pokeball : Screen
     data class Detail(val id: String) : Screen
     data class Editor(val entry: DiaryEntry, val isNew: Boolean) : Screen
@@ -109,12 +112,15 @@ fun Screen.isHub() =
     this is Screen.Calendar || this is Screen.Search || this is Screen.Insights || this is Screen.Settings ||
         this is Screen.Album || this is Screen.Habits || this is Screen.Books || this is Screen.Games || this is Screen.Watch ||
         this is Screen.Profile || this is Screen.LevelPath || this is Screen.About || this is Screen.Exercise ||
-        this is Screen.PokemonTree || this is Screen.Pokeball
+        this is Screen.PokeballShop || this is Screen.Pokeball
 
 /** A one-off "you finished something" moment: confetti, a chime and a banner. */
 data class Celebration(val token: Int, val message: String)
 
 data class LevelUp(val level: Int, val title: String, val from: Int, val rankUp: Boolean)
+
+/** A Poké Ball that has been opened: the Pokémon inside, how rare it is and any points given back for a duplicate. */
+data class BallReveal(val ball: BallDef, val pokemon: CaughtPokemon, val rarity: Rarity, val isNew: Boolean, val refund: Int)
 
 /** The splash shown after a journal entry is saved. */
 data class EntrySplash(val token: Int, val points: Int, val streak: Int, val total: Int)
@@ -370,7 +376,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         val reached = Progress.reachedKeys(stats)
         progressStats = stats
         level = info
-        if (settings.pokemonEnabled) syncPokemon()
         if (seen == null) {
             // First run with this feature: existing data counts, but nothing is celebrated.
             settings.updateCelebrated(info.level, reached)
@@ -390,7 +395,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (rose) {
             levelUp = LevelUp(info.level, info.title, from, Progress.rankIndex(info.level) > Progress.rankIndex(from))
-            if (settings.pokemonEnabled) settings.pokemonRevealLevel = info.level
         }
     }
 
@@ -450,7 +454,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onAppStarted() {
-        if (stoppedAt != 0L) syncPokemon()
         if (stoppedAt != 0L) {
             // A habit may have been ticked from a notification while the app was away.
             viewModelScope.launch { reloadPersonal() }
@@ -653,150 +656,93 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---- Pokémon ----
 
+    val ballConfig: PokeballConfig = PokeballConfig.load(app)
+    private val pokedex by lazy { Pokedex.load(getApplication(), ballConfig) }
+
     var caught by mutableStateOf<List<CaughtPokemon>>(emptyList())
         private set
-    var pokemonSyncing by mutableStateOf(false)
+
+    /** Points you can spend: everything earned so far minus what Poké Balls have cost. Levels are not affected by spending. */
+    val wallet: Int get() = (level.points - settings.ballSpent).coerceAtLeast(0)
+
+    val pokedexSize: Int get() = pokedex.size
+
+    /** The id of the ball being prepared (the Pokémon is downloaded first, so nothing is spent if that fails). */
+    var ballBusy by mutableStateOf<String?>(null)
         private set
 
-    /** Three Pokémon just unlocked by a level-up, waiting for the reveal. */
-    var pokemonReveal by mutableStateOf<List<CaughtPokemon>?>(null)
+    /** The Pokémon a ball just gave, waiting for the tap-to-open scene. */
+    var ballReveal by mutableStateOf<BallReveal?>(null)
         private set
-
-    /** True when the reveal is a replay from the journey rather than a fresh level-up. */
-    var pokemonReplay by mutableStateOf(false)
-        private set
-
-    /** The level tree shows pages of five levels; these are the first and last page on screen. */
-    var treeMinPage by mutableIntStateOf(0)
-        private set
-    var treeMaxPage by mutableIntStateOf(0)
-        private set
-    val treeNames = mutableStateMapOf<Int, String>()
-    var treeLoading by mutableStateOf(false)
-        private set
-    var treeOffline by mutableStateOf(false)
-        private set
-    private var pokemonSyncJob: Job? = null
 
     fun pokemonImage(id: Int) = pokemonRepo.imageFile(id)
 
-    fun loadPokemon() {
-        viewModelScope.launch { caught = pokemonRepo.caught() }
-        syncPokemon()
-    }
+    fun rarityOf(p: CaughtPokemon): Rarity = ballConfig.rarityOf(p)
 
-    /** Downloads the Pokémon the current level has unlocked and not fetched yet; stops quietly when offline and tries again later. */
-    fun syncPokemon() {
-        if (!settings.pokemonEnabled || pokemonSyncJob?.isActive == true) return
-        pokemonSyncJob = viewModelScope.launch {
-            pokemonRepo.removeSounds()
-            val upTo = (level.level * PokemonMath.PER_LEVEL).coerceAtMost(PokemonMath.total)
-            val have = pokemonRepo.caughtIds()
-            val missing = (1..upTo).filter { it !in have }
-            if (missing.isNotEmpty() && PokeApi.isOnline(getApplication())) {
-                pokemonSyncing = true
-                var failures = 0
-                for (id in missing) {
-                    var saved = false
-                    repeat(2) { attempt ->
-                        if (!saved) {
-                            saved = runCatching {
-                                val (pokemon, picture) = PokeApi.fetch(id, PokemonMath.levelOf(id))
-                                pokemonRepo.save(pokemon, picture)
-                            }.onFailure { Log.w("Pokemon", "Download of #$id failed (try ${attempt + 1})", it) }.isSuccess
-                            if (!saved) delay(1500)
-                        }
-                    }
-                    // Three misses in a row means the network is the problem; the next sync tries again.
-                    failures = if (saved) 0 else failures + 1
-                    if (failures >= 3) break
-                    caught = pokemonRepo.caught()
-                }
-                pokemonSyncing = false
+    fun loadPokemon() {
+        viewModelScope.launch {
+            if (!settings.ballsStarted) {
+                pokemonRepo.clearAll()
+                settings.ballsStarted = true
             }
             caught = pokemonRepo.caught()
-            revealWhenReady()
         }
     }
 
-    private fun revealWhenReady() {
-        val reveal = settings.pokemonRevealLevel
-        if (reveal == 0 || pokemonReveal != null) return
-        val ids = PokemonMath.idsFor(reveal).toSet()
-        val found = caught.filter { it.id in ids }.sortedBy { it.id }
-        if (found.size == ids.size) {
-            pokemonReveal = found
-        } else if (!PokeApi.isOnline(getApplication())) {
-            Toast.makeText(getApplication(), "New Pokémon are waiting. Connect to the internet to catch them.", Toast.LENGTH_LONG).show()
-            settings.pokemonRevealLevel = 0
+    fun openBall(ballId: String) {
+        val ball = ballConfig.balls.firstOrNull { it.id == ballId } ?: return
+        if (!settings.pokemonEnabled || ballBusy != null || ballReveal != null || wallet < ball.cost) return
+        ballBusy = ballId
+        viewModelScope.launch {
+            try {
+                if (!settings.ballsStarted) {
+                    pokemonRepo.clearAll()
+                    settings.ballsStarted = true
+                }
+                caught = pokemonRepo.caught()
+                val pity = settings.ballPity
+                val draw = pokedex.draw(ball, pity[ball.id] ?: com.amoldalwai.diary.data.Pity(), Random)
+                val already = caught.firstOrNull { it.id == draw.entry.id }
+                val pokemon = already ?: downloadPokemon(draw.entry.id)
+                if (pokemon == null) {
+                    Toast.makeText(getApplication(), "Couldn't reach PokéAPI. Check your internet. Nothing was spent.", Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                val refund = if (already != null) ballConfig.duplicateRefund[draw.rarity.ordinal] else 0
+                settings.addBallSpent(ball.cost - refund)
+                settings.ballPity = pity + (ball.id to draw.pity)
+                caught = pokemonRepo.caught()
+                ballReveal = BallReveal(ball, pokemon, draw.rarity, isNew = already == null, refund = refund)
+            } finally {
+                ballBusy = null
+            }
         }
     }
 
-
-    fun dismissPokemonReveal(openPokeball: Boolean) {
-        pokemonReveal = null
-        if (!pokemonReplay) settings.pokemonRevealLevel = 0
-        pokemonReplay = false
-        if (openPokeball) openHub(Screen.Pokeball)
+    private suspend fun downloadPokemon(id: Int): CaughtPokemon? {
+        if (!PokeApi.isOnline(getApplication())) return null
+        repeat(2) { attempt ->
+            runCatching {
+                val (pokemon, picture) = PokeApi.fetch(id, level.level)
+                pokemonRepo.save(pokemon, picture)
+                return pokemon
+            }.onFailure { Log.w("Pokemon", "Download of #$id failed (try ${attempt + 1})", it) }
+            delay(1200)
+        }
+        return null
     }
 
-    /** Plays the unlock animation again for a level whose Pokémon are all caught. */
-    fun replayPokemon(level: Int) {
-        val ids = PokemonMath.idsFor(level).toSet()
-        val found = caught.filter { it.id in ids }.sortedBy { it.id }
-        if (found.size != ids.size || pokemonReveal != null) return
-        pokemonReplay = true
-        pokemonReveal = found
+    /** Closes the reveal; [again] opens another ball of the same kind straight away. */
+    fun dismissBallReveal(again: Boolean = false, openCollection: Boolean = false) {
+        val ball = ballReveal?.ball
+        ballReveal = null
+        if (openCollection) openHub(Screen.Pokeball, from = Screen.PokeballShop)
+        else if (again && ball != null) openBall(ball.id)
     }
 
     fun setPokemonEnabled(enabled: Boolean) {
         settings.updatePokemonEnabled(enabled)
-        if (enabled) syncPokemon()
     }
-
-    private fun openPokemonTree() {
-        treeNames.putAll(settings.pokemonNames)
-        treeMinPage = PokemonMath.pageOf(level.level)
-        treeMaxPage = treeMinPage
-        loadPokemon()
-        retryTree()
-    }
-
-    fun retryTree() {
-        viewModelScope.launch {
-            treeLoading = true
-            treeOffline = false
-            for (page in treeMinPage..treeMaxPage) loadTreeNames(page)
-            treeLoading = false
-        }
-        syncPokemon()
-    }
-
-    fun treeMore(direction: Int) {
-        val page = if (direction < 0 && treeMinPage > 0) --treeMinPage else if (direction > 0 && treeMaxPage < PokemonMath.pages - 1) ++treeMaxPage else return
-        viewModelScope.launch {
-            treeLoading = true
-            treeOffline = false
-            loadTreeNames(page)
-            treeLoading = false
-        }
-    }
-
-    private suspend fun loadTreeNames(page: Int) {
-        val ids = PokemonMath.levelsOnPage(page).flatMap { PokemonMath.idsFor(it) }
-        if (ids.all { it in treeNames }) return
-        if (!PokeApi.isOnline(getApplication())) {
-            treeOffline = true
-            return
-        }
-        runCatching { PokeApi.names(ids.first() - 1, ids.size) }
-            .onSuccess {
-                treeNames.putAll(it)
-                settings.pokemonNames = treeNames.toMap()
-            }
-            .onFailure { treeOffline = true }
-    }
-
     // ---- Exercise ----
 
     var exercise by mutableStateOf(ExerciseData())
@@ -1228,8 +1174,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             Screen.Settings -> loadStorage()
             Screen.Habits -> loadHabitStats()
             Screen.Exercise -> loadExercise()
-            Screen.PokemonTree -> openPokemonTree()
-            Screen.Pokeball -> loadPokemon()
+            Screen.PokeballShop, Screen.Pokeball -> loadPokemon()
             Screen.Books -> viewModelScope.launch { books = booksRepo.books() }
             Screen.Games -> viewModelScope.launch { games = gamesRepo.games() }
             Screen.Watch -> viewModelScope.launch { watchItems = watchRepo.items() }

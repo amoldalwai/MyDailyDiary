@@ -107,7 +107,7 @@ fun LevelPathScreen(level: LevelInfo, emoji: String, photo: File?, pokemonEnable
                     ) {
                         PokeballIcon(20.dp)
                         Spacer(Modifier.width(6.dp))
-                        Text("Pokémon", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                        Text("Poké Balls", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
                     }
                     Spacer(Modifier.width(8.dp))
                 }

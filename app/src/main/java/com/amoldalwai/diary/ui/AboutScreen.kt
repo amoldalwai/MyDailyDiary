@@ -170,7 +170,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     Spacer(Modifier.height(14.dp))
                     HowItWorks("🔒", "Everything stays on your phone", "Your pages, photos, habits and library live in a private database on this device. There is no account, no cloud copy and no tracking.")
                     Spacer(Modifier.height(14.dp))
-                    HowItWorks("🌐", "The internet is only used to search", "When you add a movie, series, book or game, LifeLoom looks it up on Wikipedia, TVMaze, Steam and Open Library for the title, year and cover. Only your search words are sent, and the cover is saved on your phone. If Pokémon rewards are on, each Pokémon you unlock is downloaded once from PokéAPI and saved on your phone.")
+                    HowItWorks("🌐", "The internet is only used to search", "When you add a movie, series, book or game, LifeLoom looks it up on Wikipedia, TVMaze, Steam and Open Library for the title, year and cover. Only your search words are sent, and the cover is saved on your phone. If Pokémon rewards are on, each Pokémon you find with a Poké Ball is downloaded once from PokéAPI and saved on your phone as a small picture.")
                     Spacer(Modifier.height(14.dp))
                     HowItWorks("🧱", "Under the hood", "Written in Kotlin with Jetpack Compose and Material 3. Data is stored in SQLite, images are loaded with Coil, and reminders are scheduled by Android itself.")
                 }

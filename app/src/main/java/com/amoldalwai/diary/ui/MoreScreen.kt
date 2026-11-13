@@ -49,6 +49,7 @@ fun MoreScreen(
     onExercise: () -> Unit,
     pokemonEnabled: Boolean,
     onPokemon: () -> Unit,
+    wallet: Int,
     onSettings: () -> Unit,
     onAbout: () -> Unit,
     profileName: String,
@@ -76,7 +77,7 @@ fun MoreScreen(
             MoreRow(Icons.Rounded.FitnessCenter, "Exercise", "Log the muscles you train and keep a weekly streak", Modifier.staggeredEntrance(2), onExercise)
             if (pokemonEnabled) {
                 Spacer(Modifier.height(12.dp))
-                MoreRow(Icons.Rounded.CatchingPokemon, "Pokéball", "Pokémon you unlock as you level up", Modifier.staggeredEntrance(2), onPokemon)
+                MoreRow(Icons.Rounded.CatchingPokemon, "Poké Balls", "Spend your $wallet points on random Pokémon", Modifier.staggeredEntrance(2), onPokemon)
             }
             Spacer(Modifier.height(12.dp))
             MoreRow(Icons.Rounded.Settings, "Settings", "Colours, lock, reminders and sections", Modifier.staggeredEntrance(3), onSettings)

@@ -1,0 +1,12 @@
+{
+  "_help": "Everything about the Poké Ball economy lives here. odds are relative weights for Common, Rare, Epic, Legendary. guaranteeEpic / guaranteeLegendary = the ball always gives that rarity (or better) after this many balls in a row without one; 0 turns it off. A copy of this file named pokeball_config.json in the app's files folder overrides it.",
+  "rarity": { "rareFrom": 400, "epicFrom": 500 },
+  "generationWeight": { "1": 3 },
+  "duplicateRefund": [10, 30, 90, 300],
+  "balls": [
+    { "id": "poke", "name": "Poké Ball", "cost": 80, "color": "#E3473C", "odds": [76, 20.7, 3, 0.3], "guaranteeEpic": 50, "guaranteeLegendary": 0 },
+    { "id": "great", "name": "Great Ball", "cost": 180, "color": "#3C7BD9", "odds": [50, 38.3, 11, 0.7], "guaranteeEpic": 20, "guaranteeLegendary": 0 },
+    { "id": "ultra", "name": "Ultra Ball", "cost": 320, "color": "#D9A21B", "odds": [30, 45, 23.6, 1.4], "guaranteeEpic": 8, "guaranteeLegendary": 100 },
+    { "id": "master", "name": "Master Ball", "cost": 500, "color": "#8A4FC7", "odds": [12, 40, 45.5, 2.5], "guaranteeEpic": 4, "guaranteeLegendary": 50 }
+  ]
+}

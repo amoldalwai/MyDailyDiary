@@ -138,7 +138,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onHabits = { vm.openHub(Screen.Habits) },
                     onExercise = { vm.openHub(Screen.Exercise) },
                     pokemonEnabled = vm.settings.pokemonEnabled,
-                    onPokemon = { vm.openHub(Screen.Pokeball) },
+                    onPokemon = { vm.openHub(Screen.PokeballShop) },
+                    wallet = vm.wallet,
                     onSettings = { vm.openHub(Screen.Settings) },
                     onAbout = { vm.openHub(Screen.About) },
                     profileName = vm.settings.profileName,
@@ -161,6 +162,9 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onPickPhoto = vm::setProfilePhoto,
                     onClearPhoto = vm::clearProfilePhoto,
                     onJourney = { vm.openHub(Screen.LevelPath, from = Screen.Profile) },
+                    wallet = vm.wallet,
+                    pokemonEnabled = vm.settings.pokemonEnabled,
+                    onShop = { vm.openHub(Screen.PokeballShop, from = Screen.Profile) },
                     onBack = vm::goBack,
                 )
 
@@ -183,33 +187,29 @@ fun DiaryApp(vm: DiaryViewModel) {
                     emoji = vm.settings.profileEmoji,
                     photo = profilePhoto,
                     pokemonEnabled = vm.settings.pokemonEnabled,
-                    onPokemon = { vm.openHub(Screen.PokemonTree, from = Screen.LevelPath) },
+                    onPokemon = { vm.openHub(Screen.PokeballShop, from = Screen.LevelPath) },
                     onBack = vm::goBack,
                 )
 
-                Screen.PokemonTree -> PokemonTreeScreen(
-                    level = vm.level,
-                    caught = vm.caught,
-                    names = vm.treeNames,
-                    minPage = vm.treeMinPage,
-                    maxPage = vm.treeMaxPage,
-                    loading = vm.treeLoading,
-                    offline = vm.treeOffline,
-                    syncing = vm.pokemonSyncing,
-                    imageFile = vm::pokemonImage,
-                    onMore = vm::treeMore,
-                    onRetry = vm::retryTree,
-                    onPokeball = { vm.openHub(Screen.Pokeball, from = Screen.PokemonTree) },
-                    onReplay = vm::replayPokemon,
+                Screen.PokeballShop -> PokeballShopScreen(
+                    balls = vm.ballConfig.balls,
+                    wallet = vm.wallet,
+                    busyId = vm.ballBusy,
+                    caughtCount = vm.caught.size,
+                    total = vm.pokedexSize,
+                    refunds = vm.ballConfig.duplicateRefund,
+                    onOpen = vm::openBall,
+                    onCollection = { vm.openHub(Screen.Pokeball, from = Screen.PokeballShop) },
                     onBack = vm::goBack,
                 )
 
                 Screen.Pokeball -> PokeballScreen(
                     caught = vm.caught,
-                    level = vm.level,
-                    syncing = vm.pokemonSyncing,
+                    total = vm.pokedexSize,
+                    rarityOf = vm::rarityOf,
+                    wallet = vm.wallet,
                     imageFile = vm::pokemonImage,
-                    onTree = { vm.openHub(Screen.PokemonTree, from = Screen.Pokeball) },
+                    onShop = { vm.openHub(Screen.PokeballShop, from = Screen.Pokeball) },
                     onBack = vm::goBack,
                 )
 
@@ -397,14 +397,13 @@ fun DiaryApp(vm: DiaryViewModel) {
             if (vm.levelUp == null && vm.entrySplash == null) AwardBanner(vm.awardBanner, vm::dismissAwardBanner)
             EntrySavedSplash(vm.entrySplash, vm.settings.habitSound, vm::dismissEntrySplash)
             if (vm.entrySplash == null) LevelUpOverlay(vm.levelUp, vm.settings.habitSound, vm::dismissLevelUp)
-            vm.pokemonReveal?.let { found ->
+            vm.ballReveal?.let { reveal ->
                 if (vm.levelUp == null && vm.entrySplash == null) {
-                    PokemonRevealOverlay(
-                        level = com.amoldalwai.diary.data.PokemonMath.levelOf(found.first().id),
-                        pokemon = found,
+                    PokeballOpenOverlay(
+                        reveal = reveal,
+                        canOpenAgain = vm.wallet >= reveal.ball.cost,
                         imageFile = vm::pokemonImage,
-                        replay = vm.pokemonReplay,
-                        onDone = vm::dismissPokemonReveal,
+                        onDone = { again, collection -> vm.dismissBallReveal(again, collection) },
                     )
                 }
             }

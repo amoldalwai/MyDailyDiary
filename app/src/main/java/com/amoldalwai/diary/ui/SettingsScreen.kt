@@ -189,7 +189,7 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("My photos in the Home banner", "Show a random photo from your journal pages instead of a gradient. Tap the refresh icon on the banner for another", settings.heroOwnPhotos) { onHeroOwnPhotos(it) }
                     Spacer(Modifier.height(12.dp))
-                    ToggleRow("Pokémon rewards", "Unlock 3 Pokémon for every level. They are downloaded once, so this needs internet", settings.pokemonEnabled) { onPokemon(it) }
+                    ToggleRow("Pokémon rewards", "Spend your points on Poké Balls to find Pokémon. A new one is downloaded once, so this needs internet", settings.pokemonEnabled) { onPokemon(it) }
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("Habit sounds", "Play a chime when you tick a habit", settings.habitSound) { settings.updateHabitSound(it) }
                     Spacer(Modifier.height(12.dp))

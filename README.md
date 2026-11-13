@@ -79,6 +79,7 @@
 ### 🏆 Progress
 - Earn **XP** from entries, photos, streaks, perfect habit days, finished titles, ratings and reviews.
 - **50 levels in 10 ranks** (Seedling to Mythic) that get steadily harder, shown on a Candy Crush style **level journey** map.
+- **Pokémon rewards**: every level unlocks 3 Pokémon (Generation I, #1–150), revealed when a Poké Ball opens on level-up. Browse them in the **Pokémon journey** (5 levels per page) and keep them in your **Pokéball**, where each one is a 3D collectible card with type, stats and a description. Each is downloaded once from PokéAPI, saved on your phone as a small picture, and works offline afterwards. Can be switched off in Settings.
 - **10 awards** in bronze, silver and gold: Bookaholic, Game Expert, Movie Buff, Binge Master, Diarist, Streak Keeper, Photographer, Critic, Habit Hero and Collector.
 - **Profile** with your own photo, name, bio and a banner unlocked by rank.
 - Animated and audible moments: a splash when you save an entry, a full-screen level-up and rank-up, and award banners.

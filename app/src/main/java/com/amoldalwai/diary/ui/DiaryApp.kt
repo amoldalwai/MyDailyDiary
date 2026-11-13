@@ -137,6 +137,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onInsights = { vm.openHub(Screen.Insights) },
                     onHabits = { vm.openHub(Screen.Habits) },
                     onExercise = { vm.openHub(Screen.Exercise) },
+                    pokemonEnabled = vm.settings.pokemonEnabled,
+                    onPokemon = { vm.openHub(Screen.Pokeball) },
                     onSettings = { vm.openHub(Screen.Settings) },
                     onAbout = { vm.openHub(Screen.About) },
                     profileName = vm.settings.profileName,
@@ -180,6 +182,33 @@ fun DiaryApp(vm: DiaryViewModel) {
                     level = vm.level,
                     emoji = vm.settings.profileEmoji,
                     photo = profilePhoto,
+                    pokemonEnabled = vm.settings.pokemonEnabled,
+                    onPokemon = { vm.openHub(Screen.PokemonTree, from = Screen.LevelPath) },
+                    onBack = vm::goBack,
+                )
+
+                Screen.PokemonTree -> PokemonTreeScreen(
+                    level = vm.level,
+                    caught = vm.caught,
+                    names = vm.treeNames,
+                    minPage = vm.treeMinPage,
+                    maxPage = vm.treeMaxPage,
+                    loading = vm.treeLoading,
+                    offline = vm.treeOffline,
+                    syncing = vm.pokemonSyncing,
+                    imageFile = vm::pokemonImage,
+                    onMore = vm::treeMore,
+                    onRetry = vm::retryTree,
+                    onPokeball = { vm.openHub(Screen.Pokeball, from = Screen.PokemonTree) },
+                    onBack = vm::goBack,
+                )
+
+                Screen.Pokeball -> PokeballScreen(
+                    caught = vm.caught,
+                    level = vm.level,
+                    syncing = vm.pokemonSyncing,
+                    imageFile = vm::pokemonImage,
+                    onTree = { vm.openHub(Screen.PokemonTree, from = Screen.Pokeball) },
                     onBack = vm::goBack,
                 )
 
@@ -291,6 +320,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onStartTour = vm::startTour,
                     onShowWelcome = vm::openWelcome,
                     onHeroOwnPhotos = vm::setHeroOwnPhotos,
+                    onPokemon = vm::setPokemonEnabled,
                 )
 
                 is Screen.Detail -> PageTurn {
@@ -366,6 +396,17 @@ fun DiaryApp(vm: DiaryViewModel) {
             if (vm.levelUp == null && vm.entrySplash == null) AwardBanner(vm.awardBanner, vm::dismissAwardBanner)
             EntrySavedSplash(vm.entrySplash, vm.settings.habitSound, vm::dismissEntrySplash)
             if (vm.entrySplash == null) LevelUpOverlay(vm.levelUp, vm.settings.habitSound, vm::dismissLevelUp)
+            vm.pokemonReveal?.let { found ->
+                if (vm.levelUp == null && vm.entrySplash == null) {
+                    PokemonRevealOverlay(
+                        level = com.amoldalwai.diary.data.PokemonMath.levelOf(found.first().id),
+                        pokemon = found,
+                        sound = vm.settings.habitSound,
+                        imageFile = vm::pokemonImage,
+                        onDone = vm::dismissPokemonReveal,
+                    )
+                }
+            }
             vm.tourStep?.let { step ->
                 AppTourOverlay(
                     step = step,

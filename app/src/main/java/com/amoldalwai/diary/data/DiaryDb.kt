@@ -5,7 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import com.amoldalwai.diary.util.RichText
 
-class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 11) {
+class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, "diary.db", null, 12) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -53,6 +53,15 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
         createWatch(db)
         addFinishedYearColumns(db)
         createExercise(db)
+        createPokemon(db)
+    }
+
+    private fun createPokemon(db: SQLiteDatabase) {
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS pokemon (id INTEGER PRIMARY KEY, name TEXT NOT NULL, types TEXT NOT NULL, stats TEXT NOT NULL, height REAL NOT NULL, " +
+                "weight REAL NOT NULL, ability TEXT NOT NULL, genus TEXT NOT NULL, flavor TEXT NOT NULL, legendary INTEGER NOT NULL DEFAULT 0, cry TEXT, " +
+                "caught_level INTEGER NOT NULL, caught_at INTEGER NOT NULL)",
+        )
     }
 
     private fun createExercise(db: SQLiteDatabase) {
@@ -217,6 +226,7 @@ class DiaryDb private constructor(context: Context) : SQLiteOpenHelper(context, 
             db.execSQL("UPDATE entries SET mood = 'Stressed' WHERE mood = 'Anxious'")
         }
         if (oldVersion < 11) createExercise(db)
+        if (oldVersion < 12) createPokemon(db)
     }
 
     /** Version 1 stored bold/italic as `**`/`*` markers inside the body. */

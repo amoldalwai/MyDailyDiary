@@ -18,6 +18,10 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.amoldalwai.diary.data.DayMarker
 import com.amoldalwai.diary.data.ExerciseData
+import com.amoldalwai.diary.data.CaughtPokemon
+import com.amoldalwai.diary.data.PokeApi
+import com.amoldalwai.diary.data.PokemonMath
+import com.amoldalwai.diary.data.PokemonRepository
 import com.amoldalwai.diary.data.ExerciseMath
 import com.amoldalwai.diary.data.ExerciseRepository
 import com.amoldalwai.diary.data.Muscle
@@ -93,6 +97,8 @@ sealed interface Screen {
     data object LevelPath : Screen
     data object About : Screen
     data object Exercise : Screen
+    data object PokemonTree : Screen
+    data object Pokeball : Screen
     data class Detail(val id: String) : Screen
     data class Editor(val entry: DiaryEntry, val isNew: Boolean) : Screen
 }
@@ -102,7 +108,8 @@ fun Screen.isTab() = this is Screen.Home || this is Screen.Journal || this is Sc
 fun Screen.isHub() =
     this is Screen.Calendar || this is Screen.Search || this is Screen.Insights || this is Screen.Settings ||
         this is Screen.Album || this is Screen.Habits || this is Screen.Books || this is Screen.Games || this is Screen.Watch ||
-        this is Screen.Profile || this is Screen.LevelPath || this is Screen.About || this is Screen.Exercise
+        this is Screen.Profile || this is Screen.LevelPath || this is Screen.About || this is Screen.Exercise ||
+        this is Screen.PokemonTree || this is Screen.Pokeball
 
 /** A one-off "you finished something" moment: confetti, a chime and a banner. */
 data class Celebration(val token: Int, val message: String)
@@ -119,6 +126,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private val gamesRepo = GamesRepository(app)
     private val watchRepo = WatchRepository(app)
     private val exerciseRepo = ExerciseRepository(app)
+    private val pokemonRepo = PokemonRepository(app)
     private val pendingImages = mutableSetOf<String>()
 
     val settings = SettingsStore(app)
@@ -362,6 +370,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         val reached = Progress.reachedKeys(stats)
         progressStats = stats
         level = info
+        if (settings.pokemonEnabled) syncPokemon()
         if (seen == null) {
             // First run with this feature: existing data counts, but nothing is celebrated.
             settings.updateCelebrated(info.level, reached)
@@ -379,7 +388,10 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                 "${award.emoji} ${award.name} · ${tier.label}"
             }
         }
-        if (rose) levelUp = LevelUp(info.level, info.title, from, Progress.rankIndex(info.level) > Progress.rankIndex(from))
+        if (rose) {
+            levelUp = LevelUp(info.level, info.title, from, Progress.rankIndex(info.level) > Progress.rankIndex(from))
+            if (settings.pokemonEnabled) settings.pokemonRevealLevel = info.level
+        }
     }
 
     fun dismissLevelUp() {
@@ -438,6 +450,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onAppStarted() {
+        if (stoppedAt != 0L) syncPokemon()
         if (stoppedAt != 0L) {
             // A habit may have been ticked from a notification while the app was away.
             viewModelScope.launch { reloadPersonal() }
@@ -636,6 +649,137 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private fun alreadyAdded(title: String, id: String, onDone: (String) -> Unit) {
         Toast.makeText(getApplication(), "“$title” is already in your library", Toast.LENGTH_SHORT).show()
         onDone(id)
+    }
+
+    // ---- Pokémon ----
+
+    var caught by mutableStateOf<List<CaughtPokemon>>(emptyList())
+        private set
+    var pokemonSyncing by mutableStateOf(false)
+        private set
+
+    /** Three Pokémon just unlocked by a level-up, waiting for the reveal. */
+    var pokemonReveal by mutableStateOf<List<CaughtPokemon>?>(null)
+        private set
+
+    /** The level tree shows pages of five levels; these are the first and last page on screen. */
+    var treeMinPage by mutableIntStateOf(0)
+        private set
+    var treeMaxPage by mutableIntStateOf(0)
+        private set
+    val treeNames = mutableStateMapOf<Int, String>()
+    var treeLoading by mutableStateOf(false)
+        private set
+    var treeOffline by mutableStateOf(false)
+        private set
+    private var pokemonSyncJob: Job? = null
+
+    fun pokemonImage(id: Int) = pokemonRepo.imageFile(id)
+
+    fun loadPokemon() {
+        viewModelScope.launch { caught = pokemonRepo.caught() }
+        syncPokemon()
+    }
+
+    /** Downloads the Pokémon the current level has unlocked and not fetched yet; stops quietly when offline and tries again later. */
+    fun syncPokemon() {
+        if (!settings.pokemonEnabled || pokemonSyncJob?.isActive == true) return
+        pokemonSyncJob = viewModelScope.launch {
+            val upTo = (level.level * PokemonMath.PER_LEVEL).coerceAtMost(PokemonMath.total)
+            val have = pokemonRepo.caughtIds()
+            val missing = (1..upTo).filter { it !in have }
+            if (missing.isNotEmpty() && PokeApi.isOnline(getApplication())) {
+                pokemonSyncing = true
+                var failures = 0
+                for (id in missing) {
+                    var saved = false
+                    repeat(2) { attempt ->
+                        if (!saved) {
+                            saved = runCatching {
+                                val (pokemon, picture) = PokeApi.fetch(id, PokemonMath.levelOf(id))
+                                pokemonRepo.save(pokemon, picture)
+                            }.onFailure { Log.w("Pokemon", "Download of #$id failed (try ${attempt + 1})", it) }.isSuccess
+                            if (!saved) delay(1500)
+                        }
+                    }
+                    // Three misses in a row means the network is the problem; the next sync tries again.
+                    failures = if (saved) 0 else failures + 1
+                    if (failures >= 3) break
+                    caught = pokemonRepo.caught()
+                }
+                pokemonSyncing = false
+            }
+            caught = pokemonRepo.caught()
+            revealWhenReady()
+        }
+    }
+
+    private fun revealWhenReady() {
+        val reveal = settings.pokemonRevealLevel
+        if (reveal == 0 || pokemonReveal != null) return
+        val ids = PokemonMath.idsFor(reveal).toSet()
+        val found = caught.filter { it.id in ids }.sortedBy { it.id }
+        if (found.size == ids.size) {
+            pokemonReveal = found
+        } else if (!PokeApi.isOnline(getApplication())) {
+            Toast.makeText(getApplication(), "New Pokémon are waiting. Connect to the internet to catch them.", Toast.LENGTH_LONG).show()
+            settings.pokemonRevealLevel = 0
+        }
+    }
+
+
+    fun dismissPokemonReveal(openPokeball: Boolean) {
+        pokemonReveal = null
+        settings.pokemonRevealLevel = 0
+        if (openPokeball) openHub(Screen.Pokeball)
+    }
+
+    fun setPokemonEnabled(enabled: Boolean) {
+        settings.updatePokemonEnabled(enabled)
+        if (enabled) syncPokemon()
+    }
+
+    private fun openPokemonTree() {
+        treeNames.putAll(settings.pokemonNames)
+        treeMinPage = PokemonMath.pageOf(level.level)
+        treeMaxPage = treeMinPage
+        loadPokemon()
+        retryTree()
+    }
+
+    fun retryTree() {
+        viewModelScope.launch {
+            treeLoading = true
+            treeOffline = false
+            for (page in treeMinPage..treeMaxPage) loadTreeNames(page)
+            treeLoading = false
+        }
+        syncPokemon()
+    }
+
+    fun treeMore(direction: Int) {
+        val page = if (direction < 0 && treeMinPage > 0) --treeMinPage else if (direction > 0 && treeMaxPage < PokemonMath.pages - 1) ++treeMaxPage else return
+        viewModelScope.launch {
+            treeLoading = true
+            treeOffline = false
+            loadTreeNames(page)
+            treeLoading = false
+        }
+    }
+
+    private suspend fun loadTreeNames(page: Int) {
+        val ids = PokemonMath.levelsOnPage(page).flatMap { PokemonMath.idsFor(it) }
+        if (ids.all { it in treeNames }) return
+        if (!PokeApi.isOnline(getApplication())) {
+            treeOffline = true
+            return
+        }
+        runCatching { PokeApi.names(ids.first() - 1, ids.size) }
+            .onSuccess {
+                treeNames.putAll(it)
+                settings.pokemonNames = treeNames.toMap()
+            }
+            .onFailure { treeOffline = true }
     }
 
     // ---- Exercise ----
@@ -1069,6 +1213,8 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             Screen.Settings -> loadStorage()
             Screen.Habits -> loadHabitStats()
             Screen.Exercise -> loadExercise()
+            Screen.PokemonTree -> openPokemonTree()
+            Screen.Pokeball -> loadPokemon()
             Screen.Books -> viewModelScope.launch { books = booksRepo.books() }
             Screen.Games -> viewModelScope.launch { games = gamesRepo.games() }
             Screen.Watch -> viewModelScope.launch { watchItems = watchRepo.items() }

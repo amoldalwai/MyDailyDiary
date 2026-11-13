@@ -51,6 +51,26 @@ class SettingsStore(context: Context) {
         prefs.edit().putBoolean("quickActivities", enabled).apply()
     }
 
+    // Pokémon unlocked with levels (needs internet to fetch them) and the names already looked up for the level tree.
+    var pokemonEnabled by mutableStateOf(prefs.getBoolean("pokemonEnabled", true))
+        private set
+
+    fun updatePokemonEnabled(enabled: Boolean) {
+        pokemonEnabled = enabled
+        prefs.edit().putBoolean("pokemonEnabled", enabled).apply()
+    }
+
+    var pokemonRevealLevel: Int
+        get() = prefs.getInt("pokemonRevealLevel", 0)
+        set(value) = prefs.edit().putInt("pokemonRevealLevel", value).apply()
+
+    var pokemonNames: Map<Int, String>
+        get() = runCatching {
+            val json = JSONObject(prefs.getString("pokemonNames", "{}") ?: "{}")
+            json.keys().asSequence().associate { it.toInt() to json.getString(it) }
+        }.getOrDefault(emptyMap())
+        set(value) = prefs.edit().putString("pokemonNames", JSONObject(value.mapKeys { it.key.toString() }).toString()).apply()
+
     // Page look (background, font, lines...) that new journal pages start with.
     var defaultPageStyle by mutableStateOf(
         PageStyle(

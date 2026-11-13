@@ -69,7 +69,7 @@ private fun nodeX(level: Int): Float = 0.5f + 0.27f * sin(level * 0.9f)
 
 /** A Candy Crush style map: a winding path of levels that climbs through ten ranks, with you marked on it. */
 @Composable
-fun LevelPathScreen(level: LevelInfo, emoji: String, photo: File?, onBack: () -> Unit) {
+fun LevelPathScreen(level: LevelInfo, emoji: String, photo: File?, pokemonEnabled: Boolean, onPokemon: () -> Unit, onBack: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     SystemBarsStyle(darkIcons = !appIsDark())
     val rows = remember {
@@ -99,6 +99,17 @@ fun LevelPathScreen(level: LevelInfo, emoji: String, photo: File?, onBack: () ->
                         fontSize = 12.sp,
                         color = colors.onSurfaceVariant,
                     )
+                }
+                if (pokemonEnabled) {
+                    Row(
+                        Modifier.clip(CircleShape).background(colors.surfaceVariant).bouncyClick(onPokemon).padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PokeballIcon(20.dp)
+                        Spacer(Modifier.width(6.dp))
+                        Text("Pokémon", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = colors.primary)
+                    }
+                    Spacer(Modifier.width(8.dp))
                 }
             }
             LazyColumn(Modifier.fillMaxSize(), state = state, reverseLayout = true) {

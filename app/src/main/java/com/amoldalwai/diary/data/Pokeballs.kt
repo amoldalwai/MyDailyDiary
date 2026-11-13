@@ -36,6 +36,7 @@ data class PokeballConfig(
     val epicFrom: Int,
     val generationWeight: Map<Int, Double>,
     val duplicateRefund: List<Int>,
+    val duplicateChance: Double,
     val balls: List<BallDef>,
 ) {
     fun rarityOf(bst: Int, legendary: Boolean): Rarity = when {
@@ -69,6 +70,7 @@ data class PokeballConfig(
                 epicFrom = rarity.getInt("epicFrom"),
                 generationWeight = weights?.keys()?.asSequence()?.associate { it.toInt() to weights.getDouble(it) }.orEmpty(),
                 duplicateRefund = List(4) { refunds.getInt(it) },
+                duplicateChance = json.optDouble("duplicateChance", 0.2).coerceIn(0.0, 1.0),
                 balls = List(balls.length()) {
                     val b = balls.getJSONObject(it)
                     val odds = b.getJSONArray("odds")
@@ -117,8 +119,11 @@ class Pokedex private constructor(private val entries: List<DexEntry>, private v
 
     val size get() = entries.size
 
-    /** The pick is a pure function of the ball, the guarantees counters and the random source; nothing is saved here. */
-    fun draw(ball: BallDef, pity: Pity, random: Random): BallDraw {
+    /**
+     * The pick is a pure function of the ball, the guarantee counters, the Pokémon already owned and the random source; nothing is saved here.
+     * With the config's duplicate chance the pick is one of [owned] of the rolled rarity instead (when there is one).
+     */
+    fun draw(ball: BallDef, pity: Pity, random: Random, owned: Set<Int> = emptySet()): BallDraw {
         val o = ball.odds
         var tier = 0
         if (ball.guaranteeLegend(pity)) {
@@ -135,6 +140,15 @@ class Pokedex private constructor(private val entries: List<DexEntry>, private v
         // An empty rarity (possible with odd thresholds in the config) falls back to the nearest one below.
         while (tier > 0 && pools[tier].items.isEmpty()) tier--
         val pool = pools[tier]
+        val pity2 = Pity(if (tier >= 2) 0 else pity.epic + 1, if (tier == 3) 0 else pity.legend + 1)
+        if (owned.isNotEmpty() && random.nextDouble() < config.duplicateChance) {
+            val mine = pool.items.filter { it.id in owned }
+            if (mine.isNotEmpty()) {
+                var x = random.nextDouble() * mine.sumOf { config.generationWeight[it.generation] ?: 1.0 }
+                val pick = mine.firstOrNull { x -= config.generationWeight[it.generation] ?: 1.0; x < 0 } ?: mine.last()
+                return BallDraw(pick, Rarity.entries[tier], pity2)
+            }
+        }
         val x = random.nextDouble() * pool.total
         var lo = 0
         var hi = pool.items.lastIndex
@@ -145,7 +159,7 @@ class Pokedex private constructor(private val entries: List<DexEntry>, private v
         return BallDraw(
             entry = pool.items[lo],
             rarity = Rarity.entries[tier],
-            pity = Pity(if (tier >= 2) 0 else pity.epic + 1, if (tier == 3) 0 else pity.legend + 1),
+            pity = pity2,
         )
     }
 

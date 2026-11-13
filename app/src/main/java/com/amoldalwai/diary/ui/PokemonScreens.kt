@@ -8,6 +8,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.StartOffset
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -194,6 +195,7 @@ fun PokeballShopScreen(
     caughtCount: Int,
     total: Int,
     refunds: List<Int>,
+    duplicateChance: Double,
     onOpen: (String) -> Unit,
     onCollection: () -> Unit,
     onBack: () -> Unit,
@@ -221,8 +223,9 @@ fun PokeballShopScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(balls, key = { it.id }) { ball ->
-                    BallCard(ball, wallet, busy = busyId == ball.id, anyBusy = busyId != null, onOpen = { onOpen(ball.id) }, onInfo = { info = ball.id })
+                items(balls.size, key = { balls[it].id }) { index ->
+                    val ball = balls[index]
+                    BallCard(ball, index, wallet, busy = busyId == ball.id, anyBusy = busyId != null, onOpen = { onOpen(ball.id) }, onInfo = { info = ball.id })
                 }
                 item(span = { GridItemSpan(2) }) {
                     Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -253,22 +256,44 @@ fun PokeballShopScreen(
             onDismissRequest = { info = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = colors.surface,
-        ) { BallInfo(shown, total, refunds) }
+        ) { BallInfo(shown, total, refunds, duplicateChance) }
     }
 }
 
 @Composable
-private fun BallCard(ball: BallDef, wallet: Int, busy: Boolean, anyBusy: Boolean, onOpen: () -> Unit, onInfo: () -> Unit) {
+private fun BallCard(ball: BallDef, index: Int, wallet: Int, busy: Boolean, anyBusy: Boolean, onOpen: () -> Unit, onInfo: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val tint = ballColor(ball)
     val shape = RoundedCornerShape(24.dp)
     val canBuy = wallet >= ball.cost && !anyBusy
+    // Each ball floats and sways a little out of step with the others; it jiggles faster while it is being prepared.
+    val idle = rememberInfiniteTransition(label = "ball${ball.id}")
+    val bob by idle.animateFloat(
+        -1f, 1f,
+        infiniteRepeatable(tween(if (busy) 450 else 1900 + index * 220, easing = FastOutSlowInEasing), RepeatMode.Reverse, initialStartOffset = StartOffset(index * 450)),
+        label = "bob",
+    )
+    val sway by idle.animateFloat(
+        -1f, 1f,
+        infiniteRepeatable(tween(if (busy) 300 else 2600 + index * 300, easing = FastOutSlowInEasing), RepeatMode.Reverse, initialStartOffset = StartOffset(index * 700)),
+        label = "sway",
+    )
     Box(
         Modifier.fillMaxWidth().clip(shape).background(Brush.radialGradient(listOf(tint.copy(alpha = 0.22f), colors.surface), Offset(200f, 160f), 520f))
             .border(1.dp, colors.outline.copy(alpha = 0.4f), shape),
     ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 10.dp).padding(top = 16.dp, bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Image(painterResource(ball.image()), ball.name, Modifier.size(104.dp), contentScale = ContentScale.Fit)
+            Box(Modifier.size(104.dp), contentAlignment = Alignment.BottomCenter) {
+                Box(
+                    Modifier.padding(bottom = 2.dp).size(54.dp, 8.dp)
+                        .graphicsLayer { scaleX = 1f - 0.14f * bob; alpha = 0.16f - 0.06f * bob }.clip(CircleShape).background(Color.Black),
+                )
+                Image(
+                    painterResource(ball.image()), ball.name,
+                    Modifier.fillMaxSize().graphicsLayer { translationY = -6.dp.toPx() * (bob + 1f) / 2f - 2.dp.toPx(); rotationZ = sway * (if (busy) 9f else 4f) },
+                    contentScale = ContentScale.Fit,
+                )
+            }
             Spacer(Modifier.height(6.dp))
             Text(ball.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.onSurface)
             Row(
@@ -304,7 +329,7 @@ private fun BallCard(ball: BallDef, wallet: Int, busy: Boolean, anyBusy: Boolean
 }
 
 @Composable
-private fun BallInfo(ball: BallDef, pokedexSize: Int, refunds: List<Int>) {
+private fun BallInfo(ball: BallDef, pokedexSize: Int, refunds: List<Int>, duplicateChance: Double) {
     val colors = MaterialTheme.colorScheme
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 22.dp).padding(bottom = 22.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -333,7 +358,7 @@ private fun BallInfo(ball: BallDef, pokedexSize: Int, refunds: List<Int>) {
             if (ball.guaranteeEpic > 0) add("An Epic or better is guaranteed within ${ball.guaranteeEpic} balls.")
             if (ball.guaranteeLegendary > 0) add("A Legendary is guaranteed within ${ball.guaranteeLegendary} balls.")
             add("Any of the ${grouped(pokedexSize)} Pokémon can appear, and the first generation turns up most.")
-            add("A duplicate gives some points back (${refunds.joinToString(" / ")}).")
+            add("About ${(duplicateChance * 100).roundToInt()}% of balls give a Pokémon you already have, and a duplicate gives some points back (${refunds.joinToString(" / ")}).")
         }
         notes.forEach { Text(it, Modifier.padding(top = 4.dp), fontSize = 12.5.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant) }
     }
@@ -817,6 +842,24 @@ fun PokeballOpenOverlay(
                     val cy = focusY.toPx()
                     val leak = if (opening) 0f else taps / needed.toFloat() * 0.35f
                     val power = (leak + burst * listOf(0.55f, 0.7f, 0.85f, 1f)[tier]).coerceAtMost(1f)
+                    // A pillar of light shoots from the ball up past the top of the screen, then settles to a glow.
+                    val pillar = seg(t.value, 0.44f, 0.56f) * (1f - 0.45f * seg(t.value, 0.72f, 1f)) * listOf(0.7f, 0.8f, 0.9f, 1f)[tier]
+                    if (pillar > 0f) {
+                        val top = -400f
+                        val wide = size.width * 0.62f
+                        fun beam(bottomHalf: Float, topHalf: Float, c: Color, a: Float) {
+                            val path = Path().apply {
+                                moveTo(cx - bottomHalf, cy)
+                                lineTo(cx - topHalf, top)
+                                lineTo(cx + topHalf, top)
+                                lineTo(cx + bottomHalf, cy)
+                                close()
+                            }
+                            drawPath(path, Brush.verticalGradient(listOf(c.copy(alpha = a * 0.45f), c.copy(alpha = a)), top, cy))
+                        }
+                        beam(80.dp.toPx(), wide, RayGold, 0.55f * pillar)
+                        beam(40.dp.toPx(), wide * 0.45f, Color(0xFFFFF6C8), 0.8f * pillar)
+                    }
                     if (power > 0f) {
                         val radius = 640.dp.toPx() * (0.5f + 0.5f * (if (opening) burst else 0.6f))
                         rotate(rays, Offset(cx, cy)) {

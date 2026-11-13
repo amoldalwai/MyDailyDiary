@@ -3,6 +3,7 @@
   "rarity": { "rareFrom": 400, "epicFrom": 500 },
   "generationWeight": { "1": 3 },
   "duplicateRefund": [10, 30, 90, 300],
+  "duplicateChance": 0.2,
   "balls": [
     { "id": "poke", "name": "Poké Ball", "cost": 80, "color": "#E3473C", "odds": [76, 20.7, 3, 0.3], "guaranteeEpic": 50, "guaranteeLegendary": 0 },
     { "id": "great", "name": "Great Ball", "cost": 180, "color": "#3C7BD9", "odds": [50, 38.3, 11, 0.7], "guaranteeEpic": 20, "guaranteeLegendary": 0 },

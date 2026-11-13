@@ -198,6 +198,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     caughtCount = vm.caught.size,
                     total = vm.pokedexSize,
                     refunds = vm.ballConfig.duplicateRefund,
+                    duplicateChance = vm.ballConfig.duplicateChance,
                     onOpen = vm::openBall,
                     onCollection = { vm.openHub(Screen.Pokeball, from = Screen.PokeballShop) },
                     onBack = vm::goBack,

@@ -703,7 +703,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 caught = pokemonRepo.caught()
                 val pity = settings.ballPity
-                val draw = pokedex.draw(ball, pity[ball.id] ?: com.amoldalwai.diary.data.Pity(), Random)
+                val draw = pokedex.draw(ball, pity[ball.id] ?: com.amoldalwai.diary.data.Pity(), Random, caught.map { it.id }.toSet())
                 val already = caught.firstOrNull { it.id == draw.entry.id }
                 val pokemon = already ?: downloadPokemon(draw.entry.id)
                 if (pokemon == null) {

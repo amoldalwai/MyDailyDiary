@@ -191,7 +191,7 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("Pokémon rewards", "Spend your points on Poké Balls to find Pokémon. A new one is downloaded once, so this needs internet", settings.pokemonEnabled) { onPokemon(it) }
                     Spacer(Modifier.height(12.dp))
-                    ToggleRow("Habit sounds", "Play a chime when you tick a habit", settings.habitSound) { settings.updateHabitSound(it) }
+                    ToggleRow("Habit sounds", "Play a chime when you tick a habit and sounds when a Poké Ball opens", settings.habitSound) { settings.updateHabitSound(it) }
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("Habit nudges", "Ask about one unfinished habit at a time through the day", settings.nudgesEnabled) { toggleNudges(it) }
                     AnimatedVisibility(settings.nudgesEnabled) {

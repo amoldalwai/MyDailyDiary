@@ -1,5 +1,6 @@
 package com.amoldalwai.diary.ui
 
+import android.media.MediaPlayer
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
@@ -55,6 +56,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -99,6 +101,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
 import com.amoldalwai.diary.BallReveal
 import com.amoldalwai.diary.R
 import com.amoldalwai.diary.data.BallDef
@@ -720,17 +723,32 @@ private val revealBackground = listOf(Color(0xFF4A4A63), Color(0xFF2C5AA8), Colo
 
 /**
  * The Poké Ball floats and waits. It takes a few taps (four to seven, picked at random) before it shakes hard and opens; golden
- * rays burst out and the Pokémon rises from the ball. The better the rarity the bigger the show. Silent, with a small buzz per tap.
+ * rays burst out and the Pokémon rises from the ball. The better the rarity the bigger the show. A small buzz per tap, a sound when it
+ * opens and another for anything above Common (both follow the sound setting).
  */
 @Composable
 fun PokeballOpenOverlay(
     reveal: BallReveal,
     canOpenAgain: Boolean,
     imageFile: (Int) -> File,
+    sound: Boolean,
     onDone: (again: Boolean, collection: Boolean) -> Unit,
 ) {
     BackHandler { onDone(false, false) }
     val view = LocalView.current
+    val context = LocalContext.current
+    val players = remember { mutableListOf<MediaPlayer>() }
+    DisposableEffect(Unit) { onDispose { players.forEach { runCatching { it.release() } }; players.clear() } }
+    fun play(res: Int) {
+        if (!sound) return
+        runCatching {
+            MediaPlayer.create(context, res)?.let { p ->
+                players.add(p)
+                p.setOnCompletionListener { done -> players.remove(done); done.release() }
+                p.start()
+            }
+        }
+    }
     val scope = rememberCoroutineScope()
     val tier = reveal.rarity.ordinal
     val ball = ballColor(reveal.ball)
@@ -752,6 +770,15 @@ fun PokeballOpenOverlay(
     }
     val density = LocalDensity.current
     LaunchedEffect(Unit) { t.animateTo(0.1f, tween(450, easing = LinearEasing)) }
+    LaunchedEffect(opening) {
+        if (!opening) return@LaunchedEffect
+        play(R.raw.pokeball_open)
+        // The reveal sound is for anything above Common, timed to when the Pokémon rises out of the ball.
+        if (tier >= 1) {
+            delay(550)
+            play(R.raw.pokeball_reveal)
+        }
+    }
 
     fun tapBall() {
         if (opening || t.value < 0.1f) return

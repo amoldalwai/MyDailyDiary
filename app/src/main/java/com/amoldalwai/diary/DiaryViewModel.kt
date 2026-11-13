@@ -663,7 +663,9 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     /** Points you can spend: everything earned so far minus what Poké Balls have cost. Levels are not affected by spending. */
-    val wallet: Int get() = (level.points - settings.ballSpent).coerceAtLeast(0)
+    // TESTING-ONLY: a debug build always has plenty of points so every ball can be tried; remove before release.
+    private val debuggable = app.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+    val wallet: Int get() = if (debuggable) 999_999 else (level.points - settings.ballSpent).coerceAtLeast(0)
 
     val pokedexSize: Int get() = pokedex.size
 

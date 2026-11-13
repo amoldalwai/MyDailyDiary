@@ -403,6 +403,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                         reveal = reveal,
                         canOpenAgain = vm.wallet >= reveal.ball.cost,
                         imageFile = vm::pokemonImage,
+                        sound = vm.settings.habitSound,
                         onDone = { again, collection -> vm.dismissBallReveal(again, collection) },
                     )
                 }

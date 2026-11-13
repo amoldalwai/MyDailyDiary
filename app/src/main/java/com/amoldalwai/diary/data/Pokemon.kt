@@ -57,6 +57,9 @@ object PokemonMath {
     fun number(id: Int) = "#" + id.toString().padStart(3, '0')
 }
 
+/** A freshly downloaded Pokémon with its picture and cry. */
+class Fetched(val pokemon: CaughtPokemon, val picture: ByteArray, val cry: ByteArray?)
+
 /** PokéAPI (names, stats, text) and the PokeAPI sprites repository (pictures). Free, no key; callers cache what they fetch. */
 object PokeApi {
     private const val API = "https://pokeapi.co/api/v2"
@@ -83,8 +86,8 @@ object PokeApi {
         }
     }
 
-    /** Downloads one Pokémon and its picture, shrunk to 256 px. Throws when anything is missing or the network fails. */
-    suspend fun fetch(id: Int, level: Int): Pair<CaughtPokemon, ByteArray> = withContext(Dispatchers.IO) {
+    /** Downloads one Pokémon, its picture shrunk to 256 px and its cry (null if the cry can't be fetched). Throws when the rest is missing. */
+    suspend fun fetch(id: Int, level: Int): Fetched = withContext(Dispatchers.IO) {
         val p = JSONObject(String(get("$API/pokemon/$id")))
         val s = JSONObject(String(get("$API/pokemon-species/$id")))
         val types = p.getJSONArray("types").map { it.getJSONObject("type").getString("name") }
@@ -99,7 +102,8 @@ object PokeApi {
             ?.getString("flavor_text").orEmpty()
             .replace(Regex("[\\n\\u000c\\u00ad]"), " ").replace(Regex("\\s+"), " ").trim()
         val picture = shrink(get(artworkUrl(id)))
-        CaughtPokemon(
+        val cryUrl = p.optJSONObject("cries")?.optString("latest")?.takeIf { it.isNotEmpty() }
+        val pokemon = CaughtPokemon(
             id = id,
             name = p.getString("name"),
             types = types,
@@ -110,11 +114,15 @@ object PokeApi {
             genus = genus,
             flavor = flavor,
             legendary = s.optBoolean("is_legendary") || s.optBoolean("is_mythical"),
-            cryUrl = p.optJSONObject("cries")?.optString("latest")?.takeIf { it.isNotEmpty() },
+            cryUrl = cryUrl,
             caughtLevel = level,
             caughtAt = System.currentTimeMillis(),
-        ) to picture
+        )
+        Fetched(pokemon, picture, cryUrl?.let { downloadCry(it) })
     }
+
+    /** The cry as a small audio file, or null when it can't be downloaded. */
+    fun downloadCry(url: String): ByteArray? = runCatching { get(url) }.getOrNull()
 
     private fun shrink(png: ByteArray): ByteArray {
         val source = BitmapFactory.decodeByteArray(png, 0, png.size) ?: throw IOException("Unreadable picture")
@@ -144,6 +152,7 @@ class PokemonRepository(context: Context) {
     private val dir = File(appContext.filesDir, "pokemon").apply { mkdirs() }
 
     fun imageFile(id: Int) = File(dir, "$id.webp")
+    fun cryFile(id: Int) = File(dir, "$id.ogg")
 
     suspend fun caught(): List<CaughtPokemon> = withContext(Dispatchers.IO) {
         buildList {
@@ -175,8 +184,9 @@ class PokemonRepository(context: Context) {
         }
     }
 
-    suspend fun save(p: CaughtPokemon, picture: ByteArray) = withContext(Dispatchers.IO) {
+    suspend fun save(p: CaughtPokemon, picture: ByteArray, cry: ByteArray? = null) = withContext(Dispatchers.IO) {
         imageFile(p.id).writeBytes(picture)
+        if (cry != null) cryFile(p.id).writeBytes(cry)
         db.insertWithOnConflict(
             "pokemon",
             null,

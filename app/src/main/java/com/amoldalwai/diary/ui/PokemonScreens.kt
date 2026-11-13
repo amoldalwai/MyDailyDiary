@@ -85,6 +85,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import android.view.HapticFeedbackConstants
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.delay
+import kotlin.random.Random
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -354,6 +360,7 @@ fun PokeballScreen(
     level: LevelInfo,
     syncing: Boolean,
     imageFile: (Int) -> File,
+    cryFile: suspend (CaughtPokemon) -> File?,
     onTree: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -364,7 +371,7 @@ fun PokeballScreen(
     BackHandler(viewing != null) { openId = null }
 
     if (viewing != null) {
-        CardViewer(caught, viewing, imageFile, onSelect = { openId = caught[it].id }, onClose = { openId = null })
+        CardViewer(caught, viewing, imageFile, cryFile, onSelect = { openId = caught[it].id }, onClose = { openId = null })
         return
     }
     val lockedFrom = max(caught.maxOfOrNull { it.id } ?: 0, level.level * PokemonMath.PER_LEVEL) + 1
@@ -433,12 +440,13 @@ fun PokeballScreen(
 // ---------------------------------------------------------------- the card
 
 @Composable
-private fun CardViewer(caught: List<CaughtPokemon>, index: Int, imageFile: (Int) -> File, onSelect: (Int) -> Unit, onClose: () -> Unit) {
+private fun CardViewer(caught: List<CaughtPokemon>, index: Int, imageFile: (Int) -> File, cryFile: suspend (CaughtPokemon) -> File?, onSelect: (Int) -> Unit, onClose: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val pokemon = caught[index]
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    DisposableEffect(Unit) { onDispose { player?.release() } }
+    DisposableEffect(Unit) { onDispose { player?.let { runCatching { it.release() } } } }
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(shade(typeColor(pokemon.types.firstOrNull() ?: "normal"), 0.35f), Color(0xFF14121F))))) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -450,18 +458,15 @@ private fun CardViewer(caught: List<CaughtPokemon>, index: Int, imageFile: (Int)
                 }
                 if (pokemon.cryUrl != null) {
                     IconButton(onClick = {
-                        player?.release()
-                        player = runCatching {
-                            MediaPlayer().apply {
-                                setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).setUsage(AudioAttributes.USAGE_GAME).build())
-                                setDataSource(pokemon.cryUrl)
-                                setVolume(0.6f, 0.6f)
-                                setOnPreparedListener { it.start() }
-                                setOnCompletionListener { it.release() }
-                                setOnErrorListener { mp, _, _ -> mp.release(); true }
-                                prepareAsync()
+                        scope.launch {
+                            val file = cryFile(pokemon)
+                            if (file == null) {
+                                android.widget.Toast.makeText(context, "Its cry needs internet the first time", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                player?.let { runCatching { it.release() } }
+                                player = playCry(file, 0.3f)
                             }
-                        }.getOrNull()
+                        }
                     }) { Icon(Icons.Rounded.VolumeUp, "Play its cry", tint = Color.White) }
                 }
             }
@@ -654,14 +659,58 @@ private fun Fact(value: String, label: String, ink: Color, soft: Color) {
 
 // ---------------------------------------------------------------- the level-up reveal
 
-/** A Poké Ball drops, shakes and opens; the three Pokémon of the new level burst out and settle side by side. */
+/**
+ * A Poké Ball drops in and wobbles, waiting. It takes a few taps (four to seven, picked at random) before it shakes hard and opens;
+ * then the Pokémon of the level burst out, settle side by side and call out one after another, quietly.
+ */
 @Composable
-fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolean, imageFile: (Int) -> File, replay: Boolean, onDone: (openPokeball: Boolean) -> Unit) {
+fun PokemonRevealOverlay(
+    level: Int,
+    pokemon: List<CaughtPokemon>,
+    sound: Boolean,
+    imageFile: (Int) -> File,
+    cryFile: suspend (CaughtPokemon) -> File?,
+    replay: Boolean,
+    onDone: (openPokeball: Boolean) -> Unit,
+) {
     BackHandler { onDone(false) }
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
     val t = remember { Animatable(0f) }
-    LaunchedEffect(Unit) {
-        if (sound) Chime.celebrate()
-        t.animateTo(1f, tween(4600, easing = LinearEasing))
+    val needed = remember { Random.nextInt(4, 8) }
+    var taps by remember { mutableIntStateOf(0) }
+    var opening by remember { mutableStateOf(false) }
+    val kick = remember { Animatable(1f) }
+    val players = remember { mutableListOf<MediaPlayer>() }
+    DisposableEffect(Unit) { onDispose { players.forEach { runCatching { it.release() } } } }
+    val idle = rememberInfiniteTransition(label = "ballIdle")
+    val wobble by idle.animateFloat(-1f, 1f, infiniteRepeatable(tween(520, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "wobble")
+    val hint by idle.animateFloat(0.55f, 1f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "hint")
+    LaunchedEffect(Unit) { t.animateTo(0.1f, tween(450, easing = LinearEasing)) }
+    LaunchedEffect(opening) {
+        if (!opening) return@LaunchedEffect
+        if (sound) {
+            Chime.pokeOpened()
+            delay(1900)
+            for (p in pokemon) {
+                cryFile(p)?.let { f -> playCry(f, 0.3f)?.let { players += it } }
+                delay(900)
+            }
+        }
+    }
+    fun tapBall() {
+        if (opening || t.value < 0.1f) return
+        taps++
+        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        if (sound) Chime.tap(taps - 1)
+        scope.launch {
+            kick.snapTo(0f)
+            kick.animateTo(1f, tween(420, easing = LinearEasing))
+        }
+        if (taps >= needed) {
+            opening = true
+            scope.launch { t.animateTo(1f, tween(4000, easing = LinearEasing)) }
+        }
     }
     val spin = rememberInfiniteTransition(label = "rays")
     val rays by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(18000, easing = LinearEasing)), label = "raysAngle")
@@ -683,14 +732,37 @@ fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolea
                 }
             }
 
-            // The ball: drops in, shakes, then the lid swings open on its hinge.
+            // The ball: drops in and wobbles while it waits for taps, then shakes hard and the lid swings open on its hinge.
             val drop = (1f - FastOutSlowInEasing.transform(seg(t.value, 0f, 0.1f))) * -260f
-            val shake = sin(seg(t.value, 0.12f, 0.4f) * 4f * PI.toFloat()) * 14f * (1f - seg(t.value, 0.12f, 0.4f))
+            val finalShake = sin(seg(t.value, 0.12f, 0.4f) * 4f * PI.toFloat()) * 14f * (1f - seg(t.value, 0.12f, 0.4f))
+            val tapShake = sin(kick.value * 3f * PI.toFloat()) * 16f * (1f - kick.value) * (if (taps % 2 == 0) 1f else -1f)
+            val rotation = if (opening) finalShake else wobble * (4f + min(taps, 6) * 1.3f) + tapShake
+            val squish = if (opening) 1f else 1f + 0.07f * (1f - kick.value)
             val open = FastOutSlowInEasing.transform(seg(t.value, 0.42f, 0.52f))
+            val crack = if (opening) 0f else taps / needed.toFloat()
             Canvas(
                 Modifier.align(Alignment.TopCenter).offset(y = ballCenterY - ballSize / 2).size(ballSize)
-                    .graphicsLayer { translationY = drop * density.density; rotationZ = shake },
-            ) { drawOpeningBall(open) }
+                    .graphicsLayer { translationY = drop * density.density; rotationZ = rotation; scaleX = squish; scaleY = squish },
+            ) { drawOpeningBall(open, crack) }
+            if (!opening) {
+                // A generous touch area around the ball.
+                Box(
+                    Modifier.align(Alignment.TopCenter).offset(y = ballCenterY - 100.dp).size(200.dp)
+                        .pointerInput(Unit) { detectTapGestures { tapBall() } },
+                )
+                Column(Modifier.align(Alignment.TopCenter).offset(y = ballCenterY + 100.dp).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (replay) "REPLAY \u00b7 LEVEL $level" else "LEVEL $level REACHED", color = Color(0xFFC9C4FF), fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (taps == 0) "Tap the Pok\u00e9 Ball" else "Keep tapping\u2026",
+                        Modifier.padding(top = 6.dp).graphicsLayer { alpha = hint },
+                        color = Color.White,
+                        fontFamily = FontFamily.Serif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 26.sp,
+                    )
+                    Text("Something is inside", Modifier.padding(top = 4.dp), color = Color(0xFFD9D6F5), fontSize = 13.5.sp)
+                }
+            }
 
             // The flash as it opens.
             val flash = seg(t.value, 0.42f, 0.46f) * (1f - seg(t.value, 0.46f, 0.58f))
@@ -755,7 +827,7 @@ fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolea
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOpeningBall(open: Float) {
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOpeningBall(open: Float, crack: Float = 0f) {
     val r = size.minDimension / 2 * 0.92f
     val c = center
     val stroke = r * 0.09f
@@ -803,7 +875,25 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOpeningBall(ope
             drawOval(Color.White.copy(alpha = 0.36f), Offset(c.x - r * 0.7f, c.y - r * 0.72f), Size(r * 0.7f, r * 0.34f))
         }
     }
+
+    // Light leaking through the seam, a little more with every tap.
+    if (crack > 0f) {
+        val glow = Color(0xFFFFF3B0)
+        drawLine(glow.copy(alpha = 0.35f + 0.6f * crack), Offset(c.x - r * 0.88f, c.y), Offset(c.x + r * 0.88f, c.y), strokeWidth = band * (0.5f + crack), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+    }
 }
+
+private fun playCry(file: File, volume: Float): MediaPlayer? = runCatching {
+    MediaPlayer().apply {
+        setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).setUsage(AudioAttributes.USAGE_GAME).build())
+        setDataSource(file.path)
+        setVolume(volume, volume)
+        setOnCompletionListener { it.release() }
+        setOnErrorListener { mp, _, _ -> mp.release(); true }
+        prepare()
+        start()
+    }
+}.getOrNull()
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawButton(c: Offset, r: Float) {
     drawCircle(BallDark, r * 0.3f, c)

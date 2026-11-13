@@ -1,6 +1,8 @@
 package com.amoldalwai.diary.ui
 
+import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.media.SoundPool
 import android.view.HapticFeedbackConstants
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
@@ -764,6 +766,17 @@ fun PokeballOpenOverlay(
     val context = LocalContext.current
     val players = remember { mutableListOf<MediaPlayer>() }
     DisposableEffect(Unit) { onDispose { players.forEach { runCatching { it.release() } }; players.clear() } }
+    // The tap click is tiny, so it is kept in a SoundPool for instant playback; each tap plays it a little higher.
+    val tapPool = remember {
+        SoundPool.Builder().setMaxStreams(4)
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+            .build()
+    }
+    var tapSound by remember { mutableIntStateOf(0) }
+    DisposableEffect(Unit) {
+        tapSound = tapPool.load(context, R.raw.pokeball_tap, 1)
+        onDispose { tapPool.release() }
+    }
     fun play(res: Int) {
         if (!sound) return
         runCatching {
@@ -809,6 +822,7 @@ fun PokeballOpenOverlay(
         if (opening || t.value < 0.1f) return
         taps++
         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        if (sound && tapSound != 0) tapPool.play(tapSound, 0.9f, 0.9f, 1, 0, (0.9f + 0.7f * taps / needed).coerceIn(0.5f, 2f))
         scope.launch {
             kick.snapTo(0f)
             kick.animateTo(1f, tween(420, easing = LinearEasing))

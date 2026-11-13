@@ -77,7 +77,7 @@ enum class TourAction { AddEntry, AddMovie, AddHabit, OpenExercise }
 class TourStep(val target: String?, val title: String, val body: String, val tryLabel: String? = null, val action: TourAction? = null)
 
 val tourSteps = listOf(
-    TourStep("home_hero", "Your Home", "The date, a greeting and a fresh photo each day. Tap the small refresh icon on the photo for a new one."),
+    TourStep("home_hero", "Your Home", "The date, a greeting and a colourful banner. Turn on My photos in Settings to see your own pictures there. Tap the small refresh icon for another."),
     TourStep("home_profile", "Your profile and level", "Tap your avatar to see your level, rank, medals and awards, and to add your own photo."),
     TourStep("mood_card", "How are you feeling?", "Tap a mood to start a quick entry with it already chosen."),
     TourStep(

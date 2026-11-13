@@ -19,7 +19,7 @@
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/home.png" width="250" alt="Home" /><br /><b>Home</b><br />Daily photo, mood, habits, recent pages</td>
+    <td align="center"><img src="docs/screenshots/home.png" width="250" alt="Home" /><br /><b>Home</b><br />Banner, mood, habits, recent pages</td>
     <td align="center"><img src="docs/screenshots/quickadd.png" width="250" alt="Quick Add" /><br /><b>Quick Add</b><br />Mood, activities, a note and what you read, played or watched</td>
     <td align="center"><img src="docs/screenshots/detail.png" width="250" alt="A journal page" /><br /><b>A journal page</b><br />Paper look, habits and taped photos</td>
   </tr>
@@ -86,7 +86,7 @@
 ### 🎨 Personal
 - **Welcome slides** on first launch (skippable), and an **interactive tour** that spotlights each feature with Next, Back, Stop and "Try it" buttons. Replay either any time from **Settings → How to guide**.
 - 4 colour palettes (Sage, Teal, Lavender, Terracotta), light, dark or system theme.
-- A different photo at the top of Home each day (fetched when you're online, kept for offline use), with a refresh button.
+- A colourful animated banner at the top of Home, or a random photo from your own journal pages if you turn that on in Settings, with a refresh button for another.
 - Turn Books, Games, Movies & Series and the activity chips on or off.
 - Daily writing reminder that skips days you've already written.
 
@@ -94,7 +94,7 @@
 - No account, no ads, no analytics, no tracking.
 - Entries, habits and photos stay in the app's private storage on your phone.
 - Optional PIN and fingerprint lock.
-- The internet is used only to search book, game and movie details and fetch posters, and to fetch the Home photo.
+- The internet is used only to search book, game and movie details and fetch posters.
 
 ## ⬇️ Install
 

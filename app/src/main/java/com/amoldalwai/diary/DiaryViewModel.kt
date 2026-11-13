@@ -44,7 +44,6 @@ import com.amoldalwai.diary.data.HabitStat
 import com.amoldalwai.diary.data.HabitNudge
 import com.amoldalwai.diary.reminder.HabitNudges
 import com.amoldalwai.diary.data.HabitsRepository
-import com.amoldalwai.diary.data.HomeHero
 import com.amoldalwai.diary.data.OpenLibrary
 import com.amoldalwai.diary.data.DiaryEntry
 import com.amoldalwai.diary.data.DiaryRepository
@@ -69,6 +68,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
 import java.time.LocalDate
+import kotlin.random.Random
 import java.time.LocalTime
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
@@ -119,7 +119,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     private val gamesRepo = GamesRepository(app)
     private val watchRepo = WatchRepository(app)
     private val exerciseRepo = ExerciseRepository(app)
-    private val hero = HomeHero(app)
     private val pendingImages = mutableSetOf<String>()
 
     val settings = SettingsStore(app)
@@ -247,11 +246,9 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var heroFile by mutableStateOf<File?>(null)
         private set
-    var heroLoading by mutableStateOf(false)
-        private set
 
-    /** The photo service didn't answer, so Home shows its gradient until a download works again. */
-    var heroUnavailable by mutableStateOf(false)
+    /** Which of the banner gradients shows when there is no photo; any number, the banner takes it modulo the count. */
+    var heroGradient by mutableIntStateOf(Random.nextInt(1000))
         private set
 
     // First-run slides, and the step of the spotlight tour (null when it isn't running).
@@ -284,7 +281,8 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         viewModelScope.launch {
-            if (!settings.heroOwnPhotos) heroFile = withContext(Dispatchers.IO) { hero.latest() }
+            // The banner used to download photos; clear what is left of them.
+            withContext(Dispatchers.IO) { File(app.filesDir, "hero").deleteRecursively() }
             refreshHero()
         }
         if (!settings.coversShrunk) {
@@ -313,69 +311,32 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun refreshHero() {
-        if (useOwnHero(different = false)) return
-        val fresh = hero.refresh(LocalDate.now())
-        if (fresh != null) {
-            heroFile = fresh
-            heroUnavailable = false
-        } else if (hero.lastFetchFailed) {
-            heroUnavailable = true
-        }
+        useOwnHero()
     }
 
     private var ownHeroName: String? = null
 
-    /** Puts one of the user's own journal photos in the banner, if that setting is on and any exist. */
-    private suspend fun useOwnHero(different: Boolean): Boolean {
-        if (!settings.heroOwnPhotos) return false
-        val name = repo.bannerPhoto(if (different) null else LocalDate.now().toEpochDay(), ownHeroName) ?: return false
+    /** Picks a random journal photo for the banner when that setting is on; otherwise the banner shows a gradient. */
+    private suspend fun useOwnHero(): Boolean {
+        val name = if (settings.heroOwnPhotos) repo.bannerPhoto(ownHeroName) else null
         ownHeroName = name
-        heroFile = repo.imageFile(name)
-        heroUnavailable = false
-        return true
+        heroFile = name?.let(repo::imageFile)
+        return name != null
     }
 
     fun setHeroOwnPhotos(enabled: Boolean) {
         settings.updateHeroOwnPhotos(enabled)
         viewModelScope.launch {
-            if (enabled && !useOwnHero(different = false)) {
+            if (!useOwnHero() && enabled) {
                 Toast.makeText(getApplication(), "Add a photo to a journal page and it can appear here", Toast.LENGTH_LONG).show()
             }
-            if (!enabled) {
-                heroFile = withContext(Dispatchers.IO) { hero.latest() }
-                heroUnavailable = false
-                refreshHero()
-            }
         }
     }
 
+    /** The refresh icon: another random photo, or another gradient. */
     fun refreshHeroNow() {
-        if (heroLoading) return
-        if (settings.heroOwnPhotos) {
-            viewModelScope.launch { if (useOwnHero(different = true)) return@launch else fetchHeroOnline() }
-            return
-        }
-        fetchHeroOnline()
-    }
-
-    private fun fetchHeroOnline() {
-        if (heroLoading) return
-        if (!hero.isOnline()) {
-            Toast.makeText(getApplication(), "You're offline, so the photo stays as it is", Toast.LENGTH_SHORT).show()
-            return
-        }
-        heroLoading = true
-        viewModelScope.launch {
-            val fresh = hero.refresh(LocalDate.now(), force = true)
-            if (fresh != null) {
-                heroFile = fresh
-                heroUnavailable = false
-            } else {
-                heroUnavailable = true
-                Toast.makeText(getApplication(), "Couldn't load a new photo", Toast.LENGTH_SHORT).show()
-            }
-            heroLoading = false
-        }
+        heroGradient += 1 + Random.nextInt(3)
+        viewModelScope.launch { useOwnHero() }
     }
 
     private suspend fun refreshProgress() {
@@ -478,7 +439,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onAppStarted() {
         if (stoppedAt != 0L) {
-            viewModelScope.launch { refreshHero() }
             // A habit may have been ticked from a notification while the app was away.
             viewModelScope.launch { reloadPersonal() }
         }

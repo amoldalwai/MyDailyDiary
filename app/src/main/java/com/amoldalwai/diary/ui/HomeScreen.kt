@@ -1,5 +1,6 @@
 package com.amoldalwai.diary.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.material.icons.Icons
@@ -95,7 +96,7 @@ fun HomeScreen(
     profileName: String,
     profilePhoto: File?,
     heroImage: File?,
-    heroLoading: Boolean,
+    heroGradient: Int,
     onRefreshHero: () -> Unit,
     imageFile: (String) -> File,
     level: LevelInfo,
@@ -117,7 +118,7 @@ fun HomeScreen(
             ),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item(key = "greeting") { Greeting(profileEmoji, profileName, profilePhoto, level, onProfile, heroImage, heroLoading, onRefreshHero, Modifier.tourTarget("home_hero").staggeredEntrance(0)) }
+            item(key = "greeting") { Greeting(profileEmoji, profileName, profilePhoto, level, onProfile, heroImage, heroGradient, onRefreshHero, Modifier.tourTarget("home_hero").staggeredEntrance(0)) }
             item(key = "mood") { MoodCard(onMood, Modifier.tourTarget("mood_card").staggeredEntrance(1)) }
             if (habitUi.habits.isNotEmpty()) {
                 item(key = "habits") { TodayHabitsCard(habitUi, today, Modifier.staggeredEntrance(2)) }
@@ -158,7 +159,7 @@ private fun Greeting(
     level: LevelInfo,
     onProfile: () -> Unit,
     heroImage: File?,
-    heroLoading: Boolean,
+    heroGradient: Int,
     onRefreshHero: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -181,7 +182,7 @@ private fun Greeting(
                 modifier = Modifier.fillMaxSize(),
             )
         } else {
-            HeroGradient(Modifier.fillMaxSize())
+            HeroGradient(heroGradient, Modifier.fillMaxSize())
         }
         // A deep shade rises from the bottom, like a streaming banner, so the white words read on any photo; a light one at the top is for the avatar.
         Box(
@@ -201,18 +202,11 @@ private fun Greeting(
             Spacer(Modifier.height(4.dp))
             Text(greeting, style = MaterialTheme.typography.headlineLarge.copy(shadow = lift), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
-        val spin = rememberInfiniteTransition(label = "heroSpin")
-        val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(900, easing = LinearEasing)), label = "heroAngle")
         Box(
             Modifier.align(Alignment.TopStart).padding(14.dp).size(34.dp).bouncyClick(onRefreshHero).clip(CircleShape).background(Color(0x33FFFFFF)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(
-                Icons.Rounded.Refresh,
-                "New photo",
-                tint = Color.White,
-                modifier = Modifier.size(18.dp).graphicsLayer { rotationZ = if (heroLoading) angle else 0f },
-            )
+            Icon(Icons.Rounded.Refresh, "Change the banner", tint = Color.White, modifier = Modifier.size(18.dp))
         }
         Column(Modifier.align(Alignment.TopEnd).padding(14.dp).tourTarget("home_profile").bouncyClick(onProfile), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.clip(CircleShape).background(Color(0x33FFFFFF)).padding(3.dp)) { AvatarRing(profileEmoji, profilePhoto, level, 52.dp) }
@@ -221,31 +215,38 @@ private fun Greeting(
     }
 }
 
-/** Stands in for the daily photo when none is stored (first launch offline, or the photo service is down). */
+/** Four dark, colourful backdrops for the banner when there is no photo; white text reads on all of them. */
+private val heroPalettes = listOf(
+    listOf(0xFF3A2A78, 0xFF8A3F72, 0xFF2F4F9A),
+    listOf(0xFF0F5360, 0xFF1F7F7A, 0xFF2D4F8F),
+    listOf(0xFF8A2F2F, 0xFFB5503A, 0xFF6E2D63),
+    listOf(0xFF1F5A3F, 0xFF3F7A4C, 0xFF24606F),
+).map { palette -> palette.map { Color(it) } }
+
 @Composable
-private fun HeroGradient(modifier: Modifier = Modifier) {
-    val scheme = MaterialTheme.colorScheme
-    val tones = remember(scheme.primary, scheme.tertiary, scheme.secondary) {
-        listOf(scheme.primary, scheme.tertiary, scheme.secondary, scheme.primary).map(::deepenForWhiteText)
+private fun HeroGradient(choice: Int, modifier: Modifier = Modifier) {
+    Crossfade(choice % heroPalettes.size, animationSpec = tween(600), modifier = modifier, label = "heroPalette") { index ->
+        val palette = heroPalettes[index]
+        val tones = remember(index) { (palette + palette.first()).map(::deepenForWhiteText) }
+        val drift = rememberInfiniteTransition(label = "heroGradient")
+        val phase by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(10_000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "heroPhase")
+        Box(
+            Modifier.fillMaxSize().drawBehind {
+                val w = size.width
+                val h = size.height
+                drawRect(
+                    Brush.linearGradient(tones, start = Offset(w * phase, 0f), end = Offset(w * phase + w * 1.1f, h), tileMode = TileMode.Mirror),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        listOf(Color.White.copy(alpha = 0.16f), Color.Transparent),
+                        center = Offset(w * (0.15f + 0.7f * phase), h * 0.3f),
+                        radius = w * 0.55f,
+                    ),
+                )
+            },
+        )
     }
-    val drift = rememberInfiniteTransition(label = "heroGradient")
-    val phase by drift.animateFloat(0f, 1f, infiniteRepeatable(tween(10_000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "heroPhase")
-    Box(
-        modifier.drawBehind {
-            val w = size.width
-            val h = size.height
-            drawRect(
-                Brush.linearGradient(tones, start = Offset(w * phase, 0f), end = Offset(w * phase + w * 1.1f, h), tileMode = TileMode.Mirror),
-            )
-            drawRect(
-                Brush.radialGradient(
-                    listOf(Color.White.copy(alpha = 0.16f), Color.Transparent),
-                    center = Offset(w * (0.15f + 0.7f * phase), h * 0.3f),
-                    radius = w * 0.55f,
-                ),
-            )
-        },
-    )
 }
 
 /** Darkens a colour until white text on it reads clearly (contrast of at least 4.5:1). */

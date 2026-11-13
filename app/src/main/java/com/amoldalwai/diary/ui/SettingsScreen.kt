@@ -186,7 +186,7 @@ fun SettingsScreen(
                         onClick = onOpenHabits,
                     )
                     Spacer(Modifier.height(12.dp))
-                    ToggleRow("My photos in the Home banner", "Show a photo from your journal pages instead of an online one. Tap the refresh icon on the banner for another", settings.heroOwnPhotos) { onHeroOwnPhotos(it) }
+                    ToggleRow("My photos in the Home banner", "Show a random photo from your journal pages instead of a gradient. Tap the refresh icon on the banner for another", settings.heroOwnPhotos) { onHeroOwnPhotos(it) }
                     Spacer(Modifier.height(12.dp))
                     ToggleRow("Habit sounds", "Play a chime when you tick a habit", settings.habitSound) { settings.updateHabitSound(it) }
                     Spacer(Modifier.height(12.dp))

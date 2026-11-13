@@ -200,6 +200,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onMore = vm::treeMore,
                     onRetry = vm::retryTree,
                     onPokeball = { vm.openHub(Screen.Pokeball, from = Screen.PokemonTree) },
+                    onReplay = vm::replayPokemon,
                     onBack = vm::goBack,
                 )
 
@@ -403,6 +404,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                         pokemon = found,
                         sound = vm.settings.habitSound,
                         imageFile = vm::pokemonImage,
+                        replay = vm.pokemonReplay,
                         onDone = vm::dismissPokemonReveal,
                     )
                 }

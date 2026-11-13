@@ -662,6 +662,10 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     var pokemonReveal by mutableStateOf<List<CaughtPokemon>?>(null)
         private set
 
+    /** True when the reveal is a replay from the journey rather than a fresh level-up. */
+    var pokemonReplay by mutableStateOf(false)
+        private set
+
     /** The level tree shows pages of five levels; these are the first and last page on screen. */
     var treeMinPage by mutableIntStateOf(0)
         private set
@@ -730,8 +734,18 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissPokemonReveal(openPokeball: Boolean) {
         pokemonReveal = null
-        settings.pokemonRevealLevel = 0
+        if (!pokemonReplay) settings.pokemonRevealLevel = 0
+        pokemonReplay = false
         if (openPokeball) openHub(Screen.Pokeball)
+    }
+
+    /** Plays the unlock animation again for a level whose Pokémon are all caught. */
+    fun replayPokemon(level: Int) {
+        val ids = PokemonMath.idsFor(level).toSet()
+        val found = caught.filter { it.id in ids }.sortedBy { it.id }
+        if (found.size != ids.size || pokemonReveal != null) return
+        pokemonReplay = true
+        pokemonReveal = found
     }
 
     fun setPokemonEnabled(enabled: Boolean) {

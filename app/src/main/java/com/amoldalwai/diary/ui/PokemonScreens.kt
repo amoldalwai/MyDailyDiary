@@ -45,6 +45,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Button
@@ -156,6 +157,7 @@ fun PokemonTreeScreen(
     onMore: (Int) -> Unit,
     onRetry: () -> Unit,
     onPokeball: () -> Unit,
+    onReplay: (Int) -> Unit,
     onBack: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -227,7 +229,7 @@ fun PokemonTreeScreen(
                 for (page in minPage..maxPage) {
                     val levels = PokemonMath.levelsOnPage(page).toList()
                     items(levels.size, key = { "lv${levels[it]}" }) { i ->
-                        LevelCard(levels[i], level, byId, names, imageFile)
+                        LevelCard(levels[i], level, byId, names, imageFile, onReplay)
                     }
                 }
                 if (maxPage < PokemonMath.pages - 1) {
@@ -253,7 +255,7 @@ private fun PagerButton(label: String, loading: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun LevelCard(l: Int, level: LevelInfo, byId: Map<Int, CaughtPokemon>, names: Map<Int, String>, imageFile: (Int) -> File) {
+private fun LevelCard(l: Int, level: LevelInfo, byId: Map<Int, CaughtPokemon>, names: Map<Int, String>, imageFile: (Int) -> File, onReplay: (Int) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val rank = Progress.rankOf(l)
     val unlocked = l <= level.level
@@ -269,6 +271,12 @@ private fun LevelCard(l: Int, level: LevelInfo, byId: Map<Int, CaughtPokemon>, n
                 Text("$l", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
             }
             Text("${rank.emoji} ${rank.name}", Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = colors.onSurface)
+            if (unlocked && PokemonMath.idsFor(l).all { it in byId }) {
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape).background(colors.primaryContainer).bouncyClick { onReplay(l) },
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.PlayArrow, "Replay the unlock", tint = colors.primary, modifier = Modifier.size(22.dp)) }
+            }
             val (label, fill, ink) = when {
                 l < level.level -> Triple("Caught", colors.primaryContainer, colors.primary)
                 here -> Triple("You are here", colors.primary, colors.onPrimary)
@@ -648,7 +656,7 @@ private fun Fact(value: String, label: String, ink: Color, soft: Color) {
 
 /** A Poké Ball drops, shakes and opens; the three Pokémon of the new level burst out and settle side by side. */
 @Composable
-fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolean, imageFile: (Int) -> File, onDone: (openPokeball: Boolean) -> Unit) {
+fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolean, imageFile: (Int) -> File, replay: Boolean, onDone: (openPokeball: Boolean) -> Unit) {
     BackHandler { onDone(false) }
     val t = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -720,10 +728,10 @@ fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolea
 
             Column(Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Column(Modifier.graphicsLayer { alpha = seg(t.value, 0.55f, 0.7f) }.padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("NEW POKÉMON", color = Color(0xFFC9C4FF), fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-                    Text("Level $level reached!", color = Color.White, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 27.sp)
+                    Text(if (replay) "REPLAY" else "NEW POKÉMON", color = Color(0xFFC9C4FF), fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
+                    Text(if (replay) "Level $level Pokémon" else "Level $level reached!", color = Color.White, fontFamily = FontFamily.Serif, fontWeight = FontWeight.Bold, fontSize = 27.sp)
                     Text(
-                        "You caught ${pokemon.size} new Pokémon. They are saved in your Pokéball.",
+                        if (replay) "The ${pokemon.size} Pokémon you caught at this level." else "You caught ${pokemon.size} new Pokémon. They are saved in your Pokéball.",
                         Modifier.padding(top = 4.dp),
                         color = Color(0xFFD9D6F5),
                         fontSize = 13.5.sp,
@@ -740,7 +748,7 @@ fun PokemonRevealOverlay(level: Int, pokemon: List<CaughtPokemon>, sound: Boolea
                     Box(
                         Modifier.fillMaxWidth().clip(CircleShape).border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape).bouncyClick { if (t.value > 0.8f) onDone(false) }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
-                    ) { Text("Keep writing", color = Color(0xFFD9D6F5), fontWeight = FontWeight.SemiBold, fontSize = 15.sp) }
+                    ) { Text(if (replay) "Close" else "Keep writing", color = Color(0xFFD9D6F5), fontWeight = FontWeight.SemiBold, fontSize = 15.sp) }
                 }
             }
         }

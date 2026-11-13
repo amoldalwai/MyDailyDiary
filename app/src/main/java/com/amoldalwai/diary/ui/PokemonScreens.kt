@@ -1,7 +1,5 @@
 package com.amoldalwai.diary.ui
 
-import android.media.AudioAttributes
-import android.media.MediaPlayer
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -46,7 +44,6 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilledTonalButton
@@ -360,7 +357,6 @@ fun PokeballScreen(
     level: LevelInfo,
     syncing: Boolean,
     imageFile: (Int) -> File,
-    cryFile: suspend (CaughtPokemon) -> File?,
     onTree: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -371,7 +367,7 @@ fun PokeballScreen(
     BackHandler(viewing != null) { openId = null }
 
     if (viewing != null) {
-        CardViewer(caught, viewing, imageFile, cryFile, onSelect = { openId = caught[it].id }, onClose = { openId = null })
+        CardViewer(caught, viewing, imageFile, onSelect = { openId = caught[it].id }, onClose = { openId = null })
         return
     }
     val lockedFrom = max(caught.maxOfOrNull { it.id } ?: 0, level.level * PokemonMath.PER_LEVEL) + 1
@@ -440,13 +436,9 @@ fun PokeballScreen(
 // ---------------------------------------------------------------- the card
 
 @Composable
-private fun CardViewer(caught: List<CaughtPokemon>, index: Int, imageFile: (Int) -> File, cryFile: suspend (CaughtPokemon) -> File?, onSelect: (Int) -> Unit, onClose: () -> Unit) {
+private fun CardViewer(caught: List<CaughtPokemon>, index: Int, imageFile: (Int) -> File, onSelect: (Int) -> Unit, onClose: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val pokemon = caught[index]
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var player by remember { mutableStateOf<MediaPlayer?>(null) }
-    DisposableEffect(Unit) { onDispose { player?.let { runCatching { it.release() } } } }
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(shade(typeColor(pokemon.types.firstOrNull() ?: "normal"), 0.35f), Color(0xFF14121F))))) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -455,19 +447,6 @@ private fun CardViewer(caught: List<CaughtPokemon>, index: Int, imageFile: (Int)
                 Column(Modifier.weight(1f)) {
                     Text("My card", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
                     Text("Drag the card to tilt it", fontSize = 12.sp, color = Color.White.copy(alpha = 0.7f))
-                }
-                if (pokemon.cryUrl != null) {
-                    IconButton(onClick = {
-                        scope.launch {
-                            val file = cryFile(pokemon)
-                            if (file == null) {
-                                android.widget.Toast.makeText(context, "Its cry needs internet the first time", android.widget.Toast.LENGTH_SHORT).show()
-                            } else {
-                                player?.let { runCatching { it.release() } }
-                                player = playCry(file, 0.3f)
-                            }
-                        }
-                    }) { Icon(Icons.Rounded.VolumeUp, "Play its cry", tint = Color.White) }
                 }
             }
             Spacer(Modifier.weight(1f))
@@ -661,15 +640,13 @@ private fun Fact(value: String, label: String, ink: Color, soft: Color) {
 
 /**
  * A Poké Ball drops in and wobbles, waiting. It takes a few taps (four to seven, picked at random) before it shakes hard and opens;
- * then the Pokémon of the level burst out, settle side by side and call out one after another, quietly.
+ * then the Pokémon of the level burst out and settle side by side. There is no sound, only a small buzz on each tap.
  */
 @Composable
 fun PokemonRevealOverlay(
     level: Int,
     pokemon: List<CaughtPokemon>,
-    sound: Boolean,
     imageFile: (Int) -> File,
-    cryFile: suspend (CaughtPokemon) -> File?,
     replay: Boolean,
     onDone: (openPokeball: Boolean) -> Unit,
 ) {
@@ -681,28 +658,14 @@ fun PokemonRevealOverlay(
     var taps by remember { mutableIntStateOf(0) }
     var opening by remember { mutableStateOf(false) }
     val kick = remember { Animatable(1f) }
-    val players = remember { mutableListOf<MediaPlayer>() }
-    DisposableEffect(Unit) { onDispose { players.forEach { runCatching { it.release() } } } }
     val idle = rememberInfiniteTransition(label = "ballIdle")
     val wobble by idle.animateFloat(-1f, 1f, infiniteRepeatable(tween(520, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "wobble")
     val hint by idle.animateFloat(0.55f, 1f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "hint")
     LaunchedEffect(Unit) { t.animateTo(0.1f, tween(450, easing = LinearEasing)) }
-    LaunchedEffect(opening) {
-        if (!opening) return@LaunchedEffect
-        if (sound) {
-            Chime.pokeOpened()
-            delay(350)
-            for (p in pokemon) {
-                cryFile(p)?.let { f -> playCry(f, 0.3f)?.let { players += it } }
-                delay(900)
-            }
-        }
-    }
     fun tapBall() {
         if (opening || t.value < 0.1f) return
         taps++
         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-        if (sound) Chime.tap(taps - 1)
         scope.launch {
             kick.snapTo(0f)
             kick.animateTo(1f, tween(420, easing = LinearEasing))
@@ -886,18 +849,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawOpeningBall(ope
         drawLine(glow.copy(alpha = 0.35f + 0.6f * crack), Offset(c.x - r * 0.88f, c.y), Offset(c.x + r * 0.88f, c.y), strokeWidth = band * (0.5f + crack), cap = androidx.compose.ui.graphics.StrokeCap.Round)
     }
 }
-
-private fun playCry(file: File, volume: Float): MediaPlayer? = runCatching {
-    MediaPlayer().apply {
-        setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).setUsage(AudioAttributes.USAGE_GAME).build())
-        setDataSource(file.path)
-        setVolume(volume, volume)
-        setOnCompletionListener { it.release() }
-        setOnErrorListener { mp, _, _ -> mp.release(); true }
-        prepare()
-        start()
-    }
-}.getOrNull()
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawButton(c: Offset, r: Float) {
     drawCircle(BallDark, r * 0.3f, c)

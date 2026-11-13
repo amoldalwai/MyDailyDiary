@@ -680,15 +680,6 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
 
     fun pokemonImage(id: Int) = pokemonRepo.imageFile(id)
 
-    /** The saved cry, downloaded now when this Pokémon was caught before cries were kept; null when there is none to be had. */
-    suspend fun pokemonCry(p: CaughtPokemon): java.io.File? = withContext(Dispatchers.IO) {
-        val file = pokemonRepo.cryFile(p.id)
-        if (file.isFile && file.length() > 0) return@withContext file
-        val bytes = p.cryUrl?.let { PokeApi.downloadCry(it) } ?: return@withContext null
-        file.writeBytes(bytes)
-        file
-    }
-
     fun loadPokemon() {
         viewModelScope.launch { caught = pokemonRepo.caught() }
         syncPokemon()
@@ -698,6 +689,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     fun syncPokemon() {
         if (!settings.pokemonEnabled || pokemonSyncJob?.isActive == true) return
         pokemonSyncJob = viewModelScope.launch {
+            pokemonRepo.removeSounds()
             val upTo = (level.level * PokemonMath.PER_LEVEL).coerceAtMost(PokemonMath.total)
             val have = pokemonRepo.caughtIds()
             val missing = (1..upTo).filter { it !in have }
@@ -709,8 +701,8 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
                     repeat(2) { attempt ->
                         if (!saved) {
                             saved = runCatching {
-                                val fetched = PokeApi.fetch(id, PokemonMath.levelOf(id))
-                                pokemonRepo.save(fetched.pokemon, fetched.picture, fetched.cry)
+                                val (pokemon, picture) = PokeApi.fetch(id, PokemonMath.levelOf(id))
+                                pokemonRepo.save(pokemon, picture)
                             }.onFailure { Log.w("Pokemon", "Download of #$id failed (try ${attempt + 1})", it) }.isSuccess
                             if (!saved) delay(1500)
                         }

@@ -209,7 +209,6 @@ fun DiaryApp(vm: DiaryViewModel) {
                     level = vm.level,
                     syncing = vm.pokemonSyncing,
                     imageFile = vm::pokemonImage,
-                    cryFile = vm::pokemonCry,
                     onTree = { vm.openHub(Screen.PokemonTree, from = Screen.Pokeball) },
                     onBack = vm::goBack,
                 )
@@ -403,9 +402,7 @@ fun DiaryApp(vm: DiaryViewModel) {
                     PokemonRevealOverlay(
                         level = com.amoldalwai.diary.data.PokemonMath.levelOf(found.first().id),
                         pokemon = found,
-                        sound = vm.settings.habitSound,
                         imageFile = vm::pokemonImage,
-                        cryFile = vm::pokemonCry,
                         replay = vm.pokemonReplay,
                         onDone = vm::dismissPokemonReveal,
                     )

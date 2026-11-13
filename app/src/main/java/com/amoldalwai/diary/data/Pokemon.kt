@@ -28,7 +28,6 @@ data class CaughtPokemon(
     val genus: String,
     val flavor: String,
     val legendary: Boolean,
-    val cryUrl: String?,
     val caughtLevel: Int,
     val caughtAt: Long,
 )
@@ -57,9 +56,6 @@ object PokemonMath {
     fun number(id: Int) = "#" + id.toString().padStart(3, '0')
 }
 
-/** A freshly downloaded Pokémon with its picture and cry. */
-class Fetched(val pokemon: CaughtPokemon, val picture: ByteArray, val cry: ByteArray?)
-
 /** PokéAPI (names, stats, text) and the PokeAPI sprites repository (pictures). Free, no key; callers cache what they fetch. */
 object PokeApi {
     private const val API = "https://pokeapi.co/api/v2"
@@ -86,8 +82,8 @@ object PokeApi {
         }
     }
 
-    /** Downloads one Pokémon, its picture shrunk to 256 px and its cry (null if the cry can't be fetched). Throws when the rest is missing. */
-    suspend fun fetch(id: Int, level: Int): Fetched = withContext(Dispatchers.IO) {
+    /** Downloads one Pokémon and its picture, shrunk to 256 px. Throws when anything is missing or the network fails. */
+    suspend fun fetch(id: Int, level: Int): Pair<CaughtPokemon, ByteArray> = withContext(Dispatchers.IO) {
         val p = JSONObject(String(get("$API/pokemon/$id")))
         val s = JSONObject(String(get("$API/pokemon-species/$id")))
         val types = p.getJSONArray("types").map { it.getJSONObject("type").getString("name") }
@@ -102,8 +98,7 @@ object PokeApi {
             ?.getString("flavor_text").orEmpty()
             .replace(Regex("[\\n\\u000c\\u00ad]"), " ").replace(Regex("\\s+"), " ").trim()
         val picture = shrink(get(artworkUrl(id)))
-        val cryUrl = p.optJSONObject("cries")?.optString("latest")?.takeIf { it.isNotEmpty() }
-        val pokemon = CaughtPokemon(
+        CaughtPokemon(
             id = id,
             name = p.getString("name"),
             types = types,
@@ -114,15 +109,10 @@ object PokeApi {
             genus = genus,
             flavor = flavor,
             legendary = s.optBoolean("is_legendary") || s.optBoolean("is_mythical"),
-            cryUrl = cryUrl,
             caughtLevel = level,
             caughtAt = System.currentTimeMillis(),
-        )
-        Fetched(pokemon, picture, cryUrl?.let { downloadCry(it) })
+        ) to picture
     }
-
-    /** The cry as a small audio file, or null when it can't be downloaded. */
-    fun downloadCry(url: String): ByteArray? = runCatching { get(url) }.getOrNull()
 
     private fun shrink(png: ByteArray): ByteArray {
         val source = BitmapFactory.decodeByteArray(png, 0, png.size) ?: throw IOException("Unreadable picture")
@@ -152,12 +142,16 @@ class PokemonRepository(context: Context) {
     private val dir = File(appContext.filesDir, "pokemon").apply { mkdirs() }
 
     fun imageFile(id: Int) = File(dir, "$id.webp")
-    fun cryFile(id: Int) = File(dir, "$id.ogg")
+
+    /** Earlier builds saved a sound file per Pokémon; there is no sound any more, so clear them out. */
+    suspend fun removeSounds() = withContext(Dispatchers.IO) {
+        dir.listFiles { f -> f.extension == "ogg" }?.forEach { it.delete() }
+    }
 
     suspend fun caught(): List<CaughtPokemon> = withContext(Dispatchers.IO) {
         buildList {
             db.rawQuery(
-                "SELECT id, name, types, stats, height, weight, ability, genus, flavor, legendary, cry, caught_level, caught_at FROM pokemon ORDER BY id DESC",
+                "SELECT id, name, types, stats, height, weight, ability, genus, flavor, legendary, caught_level, caught_at FROM pokemon ORDER BY id DESC",
                 null,
             ).use {
                 while (it.moveToNext()) {
@@ -174,9 +168,8 @@ class PokemonRepository(context: Context) {
                             genus = it.getString(7),
                             flavor = it.getString(8),
                             legendary = it.getInt(9) == 1,
-                            cryUrl = it.getString(10),
-                            caughtLevel = it.getInt(11),
-                            caughtAt = it.getLong(12),
+                            caughtLevel = it.getInt(10),
+                            caughtAt = it.getLong(11),
                         ),
                     )
                 }
@@ -184,9 +177,8 @@ class PokemonRepository(context: Context) {
         }
     }
 
-    suspend fun save(p: CaughtPokemon, picture: ByteArray, cry: ByteArray? = null) = withContext(Dispatchers.IO) {
+    suspend fun save(p: CaughtPokemon, picture: ByteArray) = withContext(Dispatchers.IO) {
         imageFile(p.id).writeBytes(picture)
-        if (cry != null) cryFile(p.id).writeBytes(cry)
         db.insertWithOnConflict(
             "pokemon",
             null,
@@ -201,7 +193,6 @@ class PokemonRepository(context: Context) {
                 put("genus", p.genus)
                 put("flavor", p.flavor)
                 put("legendary", if (p.legendary) 1 else 0)
-                put("cry", p.cryUrl)
                 put("caught_level", p.caughtLevel)
                 put("caught_at", p.caughtAt)
             },

@@ -121,29 +121,7 @@ object Chime {
 
     fun entrySaved() = play(entryDone)
 
-    // Soft sounds for the Poké Ball: low and quiet, with a short fade-in so there is no click and nothing above about 1.2 kHz.
-    private fun soft(notes: List<Pair<Double, Double>>, seconds: Double, decay: Double, level: Double): ShortArray {
-        val total = (RATE * seconds).toInt()
-        return ShortArray(total) { i ->
-            val t = i / RATE.toDouble()
-            var sample = 0.0
-            for ((frequency, start) in notes) {
-                val local = t - start
-                if (local >= 0) sample += sin(2 * PI * frequency * local) * exp(-local * decay) * minOf(1.0, local / 0.008)
-            }
-            (sample * level * Short.MAX_VALUE).coerceIn(Short.MIN_VALUE.toDouble(), Short.MAX_VALUE.toDouble()).toInt().toShort()
-        }
-    }
-
-    private val taps: List<ShortArray> by lazy { List(7) { step -> soft(listOf(330.0 * Math.pow(1.09, step.toDouble()) to 0.0), 0.2, 20.0, 0.3) } }
-    private val pokeOpen: ShortArray by lazy { soft(listOf(523.25 to 0.0, 659.25 to 0.08, 783.99 to 0.16, 1046.5 to 0.24), 1.2, 4.5, 0.17) }
-
-    /** A soft tap on the ball; each one a little higher than the last. */
-    fun tap(step: Int) = play(taps[step.coerceIn(0, taps.lastIndex)], 0.7f)
-
-    fun pokeOpened() = play(pokeOpen, 0.6f)
-
-    private fun play(pcm: ShortArray, volume: Float = 1f) {
+    private fun play(pcm: ShortArray) {
         runCatching {
             val track = AudioTrack.Builder()
                 .setAudioAttributes(
@@ -163,7 +141,6 @@ object Chime {
                 .setTransferMode(AudioTrack.MODE_STATIC)
                 .build()
             track.write(pcm, 0, pcm.size)
-            track.setVolume(volume)
             track.play()
             Handler(Looper.getMainLooper()).postDelayed({ runCatching { track.release() } }, 2500)
         }

@@ -54,6 +54,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Brush
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.material.icons.rounded.BookmarkAdded
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.FormatBold
@@ -136,6 +138,8 @@ fun EditorScreen(
     onAddDrawing: (Bitmap, (String) -> Unit) -> Unit,
     habitUi: HabitUi,
     mediaUi: MediaUi,
+    defaultStyle: PageStyle,
+    onKeepStyle: (PageStyle) -> Unit,
     onSave: (DiaryEntry) -> Unit,
     onDiscard: () -> Unit,
 ) {
@@ -571,7 +575,14 @@ fun EditorScreen(
             sheetState = rememberModalBottomSheetState(),
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
-            StyleSheetContent(entry.style) { entry = entry.copy(style = it) }
+            StyleSheetContent(
+                style = entry.style,
+                isDefault = entry.style == defaultStyle,
+                onKeepDefault = {
+                    onKeepStyle(entry.style)
+                    Toast.makeText(context, "Saved. New pages will start with this look", Toast.LENGTH_SHORT).show()
+                },
+            ) { entry = entry.copy(style = it) }
         }
     }
 
@@ -703,7 +714,7 @@ private fun LinePreview(kind: String, selected: Boolean, name: String, onClick: 
 }
 
 @Composable
-private fun StyleSheetContent(style: PageStyle, onChange: (PageStyle) -> Unit) {
+private fun StyleSheetContent(style: PageStyle, isDefault: Boolean, onKeepDefault: () -> Unit, onChange: (PageStyle) -> Unit) {
     val colors = MaterialTheme.colorScheme
     Column(
         Modifier
@@ -713,7 +724,27 @@ private fun StyleSheetContent(style: PageStyle, onChange: (PageStyle) -> Unit) {
             .padding(horizontal = 22.dp)
             .padding(bottom = 24.dp),
     ) {
-        Text("Customize page", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Customize page", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            val shape = RoundedCornerShape(50)
+            Row(
+                Modifier
+                    .clip(shape)
+                    .background(if (isDefault) colors.primaryContainer else colors.surfaceVariant)
+                    .clickable(enabled = !isDefault, onClick = onKeepDefault)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (isDefault) Icons.Rounded.BookmarkAdded else Icons.Rounded.BookmarkAdd,
+                    contentDescription = null,
+                    tint = colors.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(if (isDefault) "Your default" else "Keep as default", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.primary)
+            }
+        }
         Spacer(Modifier.height(20.dp))
 
         SectionLabel("Background", colors.onSurfaceVariant)

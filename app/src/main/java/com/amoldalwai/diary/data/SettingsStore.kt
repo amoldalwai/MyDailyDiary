@@ -51,6 +51,31 @@ class SettingsStore(context: Context) {
         prefs.edit().putBoolean("quickActivities", enabled).apply()
     }
 
+    // Page look (background, font, lines...) that new journal pages start with.
+    var defaultPageStyle by mutableStateOf(
+        PageStyle(
+            backgroundId = prefs.getString("pageBg", null) ?: PageStyle().backgroundId,
+            fontId = prefs.getString("pageFont", null) ?: PageStyle().fontId,
+            fontScale = prefs.getFloat("pageFontScale", PageStyle().fontScale),
+            lines = prefs.getString("pageLines", null) ?: PageStyle().lines,
+            lineColorId = prefs.getString("pageLineColor", null) ?: PageStyle().lineColorId,
+            margin = prefs.getBoolean("pageMargin", PageStyle().margin),
+        ),
+    )
+        private set
+
+    fun updateDefaultPageStyle(style: PageStyle) {
+        defaultPageStyle = style
+        prefs.edit()
+            .putString("pageBg", style.backgroundId)
+            .putString("pageFont", style.fontId)
+            .putFloat("pageFontScale", style.fontScale)
+            .putString("pageLines", style.lines)
+            .putString("pageLineColor", style.lineColorId)
+            .putBoolean("pageMargin", style.margin)
+            .apply()
+    }
+
     // Home banner: use a photo from the user's own journal pages instead of an online one.
     var heroOwnPhotos by mutableStateOf(prefs.getBoolean("heroOwnPhotos", false))
         private set

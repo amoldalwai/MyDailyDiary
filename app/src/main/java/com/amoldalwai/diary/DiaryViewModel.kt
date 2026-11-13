@@ -1060,7 +1060,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
     fun saveQuickEntry(mood: Mood?, tags: List<String>, note: String, links: List<String>) {
         if (note.isBlank()) return
         quickAddOpen = false
-        val entry = DiaryEntry(mood = mood, tags = tags, body = note.trim(), links = links)
+        val entry = DiaryEntry(mood = mood, tags = tags, body = note.trim(), links = links, style = settings.defaultPageStyle)
         viewModelScope.launch {
             repo.save(entry)
             afterChange()
@@ -1125,7 +1125,7 @@ class DiaryViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         origin = from
-        screen = Screen.Editor((prefill ?: DiaryEntry()).copy(dateEpochDay = date.toEpochDay()), isNew = true)
+        screen = Screen.Editor((prefill ?: DiaryEntry()).copy(dateEpochDay = date.toEpochDay(), style = settings.defaultPageStyle), isNew = true)
     }
 
     fun openDay(date: LocalDate) {

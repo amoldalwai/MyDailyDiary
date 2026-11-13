@@ -320,6 +320,8 @@ fun DiaryApp(vm: DiaryViewModel) {
                     onAddDrawing = vm::addDrawing,
                     habitUi = habitUi,
                     mediaUi = mediaUi,
+                    defaultStyle = vm.settings.defaultPageStyle,
+                    onKeepStyle = vm.settings::updateDefaultPageStyle,
                     onSave = { vm.save(screen.entry, it, screen.isNew) },
                     onDiscard = { vm.discard(screen.entry, screen.isNew) },
                 )

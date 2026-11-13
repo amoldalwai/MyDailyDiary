@@ -691,7 +691,7 @@ fun PokemonRevealOverlay(
         if (!opening) return@LaunchedEffect
         if (sound) {
             Chime.pokeOpened()
-            delay(1900)
+            delay(350)
             for (p in pokemon) {
                 cryFile(p)?.let { f -> playCry(f, 0.3f)?.let { players += it } }
                 delay(900)
@@ -709,7 +709,11 @@ fun PokemonRevealOverlay(
         }
         if (taps >= needed) {
             opening = true
-            scope.launch { t.animateTo(1f, tween(4000, easing = LinearEasing)) }
+            // The last tap is the shake: jump straight to the moment before the lid lifts.
+            scope.launch {
+                t.snapTo(0.385f)
+                t.animateTo(1f, tween(2700, easing = LinearEasing))
+            }
         }
     }
     val spin = rememberInfiniteTransition(label = "rays")
